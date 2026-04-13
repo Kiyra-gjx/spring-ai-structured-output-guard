@@ -1,35 +1,117 @@
 # Spring AI Structured Output Guard
 
-`spring-ai-structured-output-guard` is a small library plus Spring Boot starter for one annoying production problem: LLMs that almost return valid JSON.
+[![CI](https://github.com/Kiyra-gjx/spring-ai-structured-output-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/Kiyra-gjx/spring-ai-structured-output-guard/actions/workflows/ci.yml)
+[![Java 21](https://img.shields.io/badge/Java-21-437291?logo=openjdk)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.1-6DB33F?logo=springboot)](https://spring.io/projects/spring-boot)
+[![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0.0--M1-6DB33F)](https://spring.io/projects/spring-ai)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-It adds a defensive layer around Spring AI structured output calls:
+Defensive structured output execution for Spring AI.
 
-- retries only when the failure looks like a structured output problem
-- repairs common JSON issues such as code fences, trailing commas, smart quotes, and raw control characters
-- centralizes failure handling and logging
-- keeps the call site simple
+`spring-ai-structured-output-guard` wraps Spring AI structured output calls with targeted retries, lightweight JSON repair, and a small Spring Boot starter so you can stop duplicating brittle `try/catch + retry + cleanup` logic across services.
 
-## Why
+## The Problem
 
-Spring AI already gives you `BeanOutputConverter`, which is great when the model behaves.
+Spring AI already provides `BeanOutputConverter`, which works well when the model behaves.
 
-In real applications, you still hit responses like:
+Production responses often still look like this:
 
-- fenced JSON
-- extra prose before or after the JSON body
-- trailing commas
-- raw newlines inside string values
-- slightly malformed text that is one repair step away from valid JSON
+````text
+```json
+{
+  "name": "Alice",
+  "skills": ["Java", "Spring",],
+}
+```
+````
 
-This project turns that into a reusable guard instead of duplicating `try/catch + retry + repair` logic across services.
+Or this:
+
+```text
+Here is the result you asked for:
+{"name":"Alice","summary":"line1
+line2"}
+```
+
+Both are close to valid JSON, but close is not enough.
+
+## What This Library Does
+
+- retries only when the failure looks like a structured output parsing problem
+- strips Markdown code fences and leading or trailing prose
+- extracts the JSON body from noisy responses
+- removes trailing commas
+- normalizes smart quotes
+- escapes raw control characters inside JSON strings
+- keeps the call site small and typed
+- ships with a Spring Boot auto-configuration module for Spring AI projects
+
+## Before / After
+
+**Before**
+
+```java
+BeanOutputConverter<MovieReview> converter = new BeanOutputConverter<>(MovieReview.class);
+
+try {
+    String raw = chatClient.prompt()
+        .system(systemPrompt + "\n" + converter.getFormat())
+        .user(userPrompt)
+        .call()
+        .content();
+    return converter.convert(raw);
+} catch (Exception e) {
+    // retry?
+    // repair json?
+    // log?
+    // wrap exception?
+    throw e;
+}
+```
+
+**After**
+
+```java
+return outputGuard.call(
+    chatClient,
+    systemPrompt,
+    userPrompt,
+    MovieReview.class,
+    StructuredOutputCallOptions.builder()
+        .logContext("movie-review")
+        .failureMessage("Failed to parse movie review")
+        .build()
+);
+```
 
 ## Modules
 
-- `core`: framework-agnostic retry, repair, and execution logic
-- `starter`: Spring Boot auto-configuration and Spring AI integration
-- `example`: runnable demo application
+- `core`
+  Framework-agnostic retry, repair, parsing orchestration, and tests.
+- `starter`
+  Spring Boot auto-configuration plus Spring AI integration entry point.
+- `example`
+  Runnable demo application.
 
-## Quick Example
+## Installation
+
+### Gradle
+
+```groovy
+implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1.0-SNAPSHOT"
+```
+
+### Maven
+
+```xml
+<dependency>
+  <groupId>io.github.kiyragjx</groupId>
+  <artifactId>spring-ai-structured-output-guard-starter</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+</dependency>
+```
+
+## Quick Start
 
 ```java
 @Service
@@ -66,12 +148,6 @@ public class ResumeService {
 }
 ```
 
-## Dependency
-
-```groovy
-implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1.0-SNAPSHOT"
-```
-
 ## Configuration
 
 ```yaml
@@ -85,37 +161,85 @@ spring:
         max-error-message-length: 200
 ```
 
-## Example App
+### Properties
 
-The `example` module exposes a simple endpoint:
+| Property | Default | Description |
+|---|---:|---|
+| `spring.ai.structured-output.guard.max-attempts` | `2` | Total attempts including the first call |
+| `spring.ai.structured-output.guard.include-last-error-in-retry-prompt` | `true` | Adds the sanitized parse error to retry instructions |
+| `spring.ai.structured-output.guard.enable-repair` | `true` | Enables lightweight JSON repair before retrying |
+| `spring.ai.structured-output.guard.max-error-message-length` | `200` | Truncates parse errors included in retry prompts |
+
+## Repair Strategy
+
+The current repair layer intentionally stays conservative. It does not try to become a full JSON healing engine. It only handles common low-risk cleanup:
+
+- strip UTF-8 BOM
+- strip Markdown code fences
+- extract the first JSON object or array
+- normalize smart quotes
+- remove trailing commas before `}` or `]`
+- escape raw `\n`, `\r`, `\t`, and control characters inside JSON strings
+
+If the response is fundamentally wrong, the guard still fails fast with `StructuredOutputException`.
+
+## Example Application
+
+The `example` module exposes:
 
 ```text
 GET /demo/movie-review?movie=Interstellar
 ```
 
-With the right Spring AI model configuration, it returns a typed JSON response parsed through the guard.
+Run it with:
 
-## Local Build
+```bash
+./gradlew :example:bootRun
+```
+
+Then call:
+
+```bash
+curl "http://localhost:8088/demo/movie-review?movie=Interstellar"
+```
+
+## Local Development
 
 ```bash
 ./gradlew test
 ./gradlew :example:bootRun
 ```
 
-## Current Stack
+## Compatibility
 
-This repository is scaffolded against the versions already available in the local workspace cache:
+This repository is currently scaffolded against versions already available in the local workspace cache:
 
 - Spring Boot `4.0.1`
 - Spring AI `2.0.0-M1`
 - Java `21`
 
-If you plan to publish it publicly, upgrading to the latest stable Spring AI line is recommended after the API is validated.
+If you intend to publish this publicly, moving to the latest stable Spring AI line is recommended once the API shape is finalized.
+
+## Release Plan
+
+Planned release steps:
+
+1. stabilize API names and package layout
+2. add fake-chat-model integration tests
+3. publish `0.1.0`
+4. add metrics and extension points in `0.2.x`
+
+See [CHANGELOG.md](./CHANGELOG.md) for release notes.
 
 ## Roadmap
 
-- support custom repair strategies
-- add Micrometer metrics hooks
-- support structured output guard around streaming completion aggregation
-- add integration tests against a fake chat model
+- custom repair strategies
+- Micrometer metrics hooks
+- streaming aggregation support
+- richer classification for converter and parser failures
+- more end-to-end samples
+
+## Contributing
+
+Issues and pull requests are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
