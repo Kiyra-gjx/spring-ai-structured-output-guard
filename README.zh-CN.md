@@ -8,15 +8,15 @@
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0.0--M1-6DB33F)](https://spring.io/projects/spring-ai)
 [![License: Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](./LICENSE)
 
-Defensive structured output execution for Spring AI.
+面向 Spring AI 的结构化输出防御层。
 
-`spring-ai-structured-output-guard` wraps Spring AI structured output calls with targeted retries, lightweight JSON repair, and a small Spring Boot starter so you can stop duplicating brittle `try/catch + retry + cleanup` logic across services.
+`spring-ai-structured-output-guard` 用来包装 Spring AI 的结构化输出调用，提供更有针对性的重试、轻量 JSON 修复，以及一个即插即用的 Spring Boot Starter。它解决的是生产环境里常见的那类问题：模型返回的内容“几乎”是合法 JSON，但还差一点，足以让程序在解析时直接失败。
 
-## The Problem
+## 这个项目解决什么问题
 
-Spring AI already provides `BeanOutputConverter`, which works well when the model behaves.
+Spring AI 已经提供了 `BeanOutputConverter`，模型表现稳定时体验很好。
 
-Production responses often still look like this:
+但在真实业务里，你仍然会遇到这些返回：
 
 ````text
 ```json
@@ -27,7 +27,7 @@ Production responses often still look like this:
 ```
 ````
 
-Or this:
+或者：
 
 ```text
 Here is the result you asked for:
@@ -35,18 +35,18 @@ Here is the result you asked for:
 line2"}
 ```
 
-Both are close to valid JSON, but close is not enough.
+这两类内容距离合法 JSON 只差一步，但“差一点”在服务端就足够造成失败。
 
-## What This Library Does
+## 功能概览
 
-- retries only when the failure looks like a structured output parsing problem
-- strips Markdown code fences and leading or trailing prose
-- extracts the JSON body from noisy responses
-- removes trailing commas
-- normalizes smart quotes
-- escapes raw control characters inside JSON strings
-- keeps the call site small and typed
-- ships with a Spring Boot auto-configuration module for Spring AI projects
+- 只在错误看起来像“结构化输出解析失败”时才重试
+- 去掉 Markdown code fence 和无关前后缀
+- 从噪声文本中提取 JSON 主体
+- 去除尾随逗号
+- 规范化智能引号
+- 转义 JSON 字符串中的原始控制字符
+- 保持调用端代码简洁、类型安全
+- 提供 Spring Boot 自动配置，开箱即用
 
 ## Before / After
 
@@ -63,10 +63,6 @@ try {
         .content();
     return converter.convert(raw);
 } catch (Exception e) {
-    // retry?
-    // repair json?
-    // log?
-    // wrap exception?
     throw e;
 }
 ```
@@ -86,16 +82,16 @@ return outputGuard.call(
 );
 ```
 
-## Modules
+## 模块结构
 
 - `core`
-  Framework-agnostic retry, repair, parsing orchestration, and tests.
+  与框架无关的重试、修复、解析编排逻辑。
 - `starter`
-  Spring Boot auto-configuration plus Spring AI integration entry point.
+  Spring Boot 自动配置和 Spring AI 集成入口。
 - `example`
-  Runnable demo application.
+  可直接运行的演示应用。
 
-## Installation
+## 安装
 
 ### Gradle
 
@@ -113,7 +109,7 @@ implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1
 </dependency>
 ```
 
-## Quick Start
+## 快速开始
 
 ```java
 @Service
@@ -150,7 +146,7 @@ public class ResumeService {
 }
 ```
 
-## Configuration
+## 配置
 
 ```yaml
 spring:
@@ -163,84 +159,85 @@ spring:
         max-error-message-length: 200
 ```
 
-### Properties
+### 配置项
 
-| Property | Default | Description |
+| 配置项 | 默认值 | 说明 |
 |---|---:|---|
-| `spring.ai.structured-output.guard.max-attempts` | `2` | Total attempts including the first call |
-| `spring.ai.structured-output.guard.include-last-error-in-retry-prompt` | `true` | Adds the sanitized parse error to retry instructions |
-| `spring.ai.structured-output.guard.enable-repair` | `true` | Enables lightweight JSON repair before retrying |
-| `spring.ai.structured-output.guard.max-error-message-length` | `200` | Truncates parse errors included in retry prompts |
+| `spring.ai.structured-output.guard.max-attempts` | `2` | 总尝试次数，包含第一次调用 |
+| `spring.ai.structured-output.guard.include-last-error-in-retry-prompt` | `true` | 是否把上一次解析错误摘要带进重试提示词 |
+| `spring.ai.structured-output.guard.enable-repair` | `true` | 是否在重试前启用轻量 JSON 修复 |
+| `spring.ai.structured-output.guard.max-error-message-length` | `200` | 限制重试提示中错误信息的最大长度 |
 
-## Repair Strategy
+## 修复策略
 
-The current repair layer intentionally stays conservative. It does not try to become a full JSON healing engine. It only handles common low-risk cleanup:
+当前修复层刻意保持保守，它不是通用 JSON 修复引擎，只处理风险较低的常见问题：
 
-- strip UTF-8 BOM
-- strip Markdown code fences
-- extract the first JSON object or array
-- normalize smart quotes
-- remove trailing commas before `}` or `]`
-- escape raw `\n`, `\r`, `\t`, and control characters inside JSON strings
+- 去除 UTF-8 BOM
+- 去除 Markdown code fence
+- 提取首个 JSON 对象或数组
+- 规范化智能引号
+- 删除 `}` 或 `]` 前的尾随逗号
+- 转义 JSON 字符串中的 `\n`、`\r`、`\t` 和其他控制字符
 
-If the response is fundamentally wrong, the guard still fails fast with `StructuredOutputException`.
+如果响应本身严重错误，库仍然会抛出 `StructuredOutputException`，而不是硬猜内容。
 
-## Example Application
+## 示例应用
 
-The `example` module exposes:
+`example` 模块提供了这个接口：
 
 ```text
 GET /demo/movie-review?movie=Interstellar
 ```
 
-Run it with:
+运行方式：
 
 ```bash
 ./gradlew :example:bootRun
 ```
 
-Then call:
+调用示例：
 
 ```bash
 curl "http://localhost:8088/demo/movie-review?movie=Interstellar"
 ```
 
-## Local Development
+## 本地开发
 
 ```bash
 ./gradlew test
 ./gradlew :example:bootRun
 ```
 
-## Compatibility
+## 兼容性
 
-This repository is currently scaffolded against versions already available in the local workspace cache:
+当前仓库先基于本地已可用的版本搭建：
 
 - Spring Boot `4.0.1`
 - Spring AI `2.0.0-M1`
 - Java `21`
 
-If you intend to publish this publicly, moving to the latest stable Spring AI line is recommended once the API shape is finalized.
+如果后续要正式公开发布，建议在 API 形态稳定后切到 Spring AI 的最新稳定版。
 
-## Release Plan
+## 发布计划
 
-Planned release steps:
+计划中的发布步骤：
 
-1. stabilize API names and package layout
-2. add fake-chat-model integration tests
-3. publish `0.1.0`
-4. add metrics and extension points in `0.2.x`
+1. 稳定 API 命名和包结构
+2. 增加 fake chat model 集成测试
+3. 发布 `0.1.0`
+4. 在 `0.2.x` 增加指标和扩展点
 
-See [CHANGELOG.md](./CHANGELOG.md) for release notes.
+详细记录见 [CHANGELOG.md](./CHANGELOG.md)。
 
 ## Roadmap
 
-- custom repair strategies
-- Micrometer metrics hooks
-- streaming aggregation support
-- richer classification for converter and parser failures
-- more end-to-end samples
+- 支持自定义 repair strategy
+- 增加 Micrometer 指标埋点
+- 支持流式聚合后的结构化输出防护
+- 更丰富的错误分类
+- 增加端到端样例
 
-## Contributing
+## 参与贡献
 
-Issues and pull requests are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md).
+欢迎提 issue 和 PR。贡献说明见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
+
