@@ -4,7 +4,7 @@
 [![Java 21](https://img.shields.io/badge/Java-21-437291?logo=openjdk)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.1-6DB33F?logo=springboot)](https://spring.io/projects/spring-boot)
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0.0--M1-6DB33F)](https://spring.io/projects/spring-ai)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![License: Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](./LICENSE)
 
 Defensive structured output execution for Spring AI.
 
@@ -242,4 +242,3 @@ See [CHANGELOG.md](./CHANGELOG.md) for release notes.
 ## Contributing
 
 Issues and pull requests are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md).
-
