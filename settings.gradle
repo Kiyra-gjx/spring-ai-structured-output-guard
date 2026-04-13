@@ -1,0 +1,6 @@
+rootProject.name = 'spring-ai-structured-output-guard'
+
+include 'core'
+include 'starter'
+include 'example'
+

@@ -1,0 +1,15 @@
+plugins {
+    alias(libs.plugins.spring.boot)
+}
+
+dependencies {
+    implementation project(':starter')
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+tasks.named('jar') {
+    enabled = false
+}
+

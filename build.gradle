@@ -1,0 +1,45 @@
+plugins {
+    alias(libs.plugins.spring.boot) apply false
+    alias(libs.plugins.spring.dependency.management) apply false
+}
+
+group = 'io.github.kiyragjx'
+version = '0.1.0-SNAPSHOT'
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'io.spring.dependency-management'
+
+    group = rootProject.group
+    version = rootProject.version
+
+    repositories {
+        mavenCentral()
+        maven { url 'https://repo.spring.io/milestone' }
+    }
+
+    dependencyManagement {
+        imports {
+            mavenBom "org.springframework.boot:spring-boot-dependencies:${libs.versions.spring.boot.get()}"
+            mavenBom "org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}"
+        }
+    }
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+        withSourcesJar()
+        withJavadocJar()
+    }
+
+    tasks.named('test') {
+        useJUnitPlatform()
+    }
+
+    dependencies {
+        testImplementation libs.junit.jupiter
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+}
+

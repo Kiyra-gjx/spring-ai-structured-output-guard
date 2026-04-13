@@ -1,0 +1,12 @@
+dependencies {
+    api project(':core')
+
+    api 'org.springframework.ai:spring-ai-client-chat'
+    api 'org.springframework.ai:spring-ai-model'
+    implementation 'org.springframework.ai:spring-ai-commons'
+    implementation 'org.springframework.boot:spring-boot-autoconfigure'
+
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+

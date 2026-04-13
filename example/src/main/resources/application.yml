@@ -1,0 +1,20 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: structured-output-guard-example
+  ai:
+    openai:
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      api-key: ${OPENAI_API_KEY:replace-me}
+      chat:
+        options:
+          model: ${OPENAI_MODEL:gpt-4o-mini}
+    structured-output:
+      guard:
+        max-attempts: 2
+        include-last-error-in-retry-prompt: true
+        enable-repair: true
+        max-error-message-length: 200
+
