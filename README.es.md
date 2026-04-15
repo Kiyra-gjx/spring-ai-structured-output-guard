@@ -8,13 +8,25 @@
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0.0--M1-6DB33F)](https://spring.io/projects/spring-ai)
 [![License: Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](./LICENSE)
 
-Capa defensiva de salida estructurada para Spring AI.
+Haz que las salidas estructuradas de Spring AI sean más fiables en producción.
 
-`spring-ai-structured-output-guard` envuelve las llamadas de salida estructurada de Spring AI con reintentos dirigidos, reparación ligera de JSON y un Spring Boot Starter pequeño y reutilizable.
+`spring-ai-structured-output-guard` envuelve las llamadas de salida estructurada de Spring AI con reintentos dirigidos y una reparación conservadora de JSON, para que las respuestas defectuosas no te obliguen a repetir `try/catch + retry + cleanup` en cada servicio.
 
-## El problema
+## Por qué existe
 
-`BeanOutputConverter` de Spring AI funciona muy bien cuando el modelo devuelve JSON válido.
+Spring AI ya ofrece `BeanOutputConverter`, y funciona bien cuando el modelo devuelve JSON limpio.
+
+Pero el tráfico real de producción es más sucio. La salida estructurada suele fallar cuando el modelo devuelve:
+
+- JSON envuelto en Markdown code fences
+- comas finales antes de `}` o `]`
+- texto explicativo antes o después del cuerpo JSON
+- saltos de línea en bruto y caracteres de control dentro de cadenas JSON
+- fallos de parseo que en realidad solo necesitan un reintento dirigido, no un flujo completo de recuperación
+
+Estas respuestas están muy cerca de ser JSON válido, pero estar cerca no basta para que el parser las acepte.
+
+### Respuestas rotas típicas
 
 En producción, es común recibir respuestas como:
 
@@ -35,25 +47,70 @@ Here is the result you asked for:
 line2"}
 ```
 
-Está “casi” bien, pero no lo suficiente para un parser.
+## Qué obtienes
 
-## Qué hace esta librería
+- reintentos dirigidos solo cuando el error parece ser de parseo estructurado
+- reparación ligera de JSON para problemas comunes y de bajo riesgo
+- extracción del cuerpo JSON real desde respuestas con ruido
+- limpieza de comas finales y normalización de comillas tipográficas
+- escape de caracteres de control en bruto dentro de cadenas JSON
+- código de llamada más pequeño y con tipos claros
+- un Spring Boot Starter listo para integrarse en proyectos con Spring AI
 
-- reintenta solo cuando el error parece ser de parseo estructurado
-- elimina code fences y texto extra antes o después del JSON
-- extrae el cuerpo JSON desde respuestas ruidosas
-- elimina comas finales
-- normaliza comillas tipográficas
-- escapa caracteres de control dentro de cadenas JSON
-- mantiene simple el código del lado del servicio
-- ofrece auto-configuración para Spring Boot
+## Integración en 30 segundos
+
+**Sin el guard**
+
+```java
+BeanOutputConverter<MovieReview> converter = new BeanOutputConverter<>(MovieReview.class);
+
+try {
+    String raw = chatClient.prompt()
+        .system(systemPrompt + "\n" + converter.getFormat())
+        .user(userPrompt)
+        .call()
+        .content();
+    return converter.convert(raw);
+} catch (Exception e) {
+    // retry?
+    // repair json?
+    // log?
+    // wrap exception?
+    throw e;
+}
+```
+
+**Con el guard**
+
+```java
+return outputGuard.call(
+    chatClient,
+    systemPrompt,
+    userPrompt,
+    MovieReview.class,
+    StructuredOutputCallOptions.builder()
+        .logContext("movie-review")
+        .failureMessage("Failed to parse movie review")
+        .build()
+);
+```
 
 ## Instalación
+
+Este Starter todavía no está publicado en un registro público de artefactos.
+
+Primera versión pública prevista:
+
+```text
+0.1.0-beta.1
+```
+
+Coordenadas previstas:
 
 ### Gradle
 
 ```groovy
-implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1.0-SNAPSHOT"
+implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1.0-beta.1"
 ```
 
 ### Maven
@@ -62,7 +119,7 @@ implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1
 <dependency>
   <groupId>io.github.kiyragjx</groupId>
   <artifactId>spring-ai-structured-output-guard-starter</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0-beta.1</version>
 </dependency>
 ```
 
@@ -144,4 +201,3 @@ Antes de una publicación pública, conviene migrar a una línea estable de Spri
 ## Contribuciones
 
 Se aceptan issues y pull requests. Consulta [CONTRIBUTING.md](./CONTRIBUTING.md).
-

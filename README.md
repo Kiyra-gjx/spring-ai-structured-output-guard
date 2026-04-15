@@ -8,15 +8,25 @@
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0.0--M1-6DB33F)](https://spring.io/projects/spring-ai)
 [![License: Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](./LICENSE)
 
-Defensive structured output execution for Spring AI.
+Make Spring AI structured outputs reliable in production.
 
-`spring-ai-structured-output-guard` wraps Spring AI structured output calls with targeted retries, lightweight JSON repair, and a small Spring Boot starter so you can stop duplicating brittle `try/catch + retry + cleanup` logic across services.
+`spring-ai-structured-output-guard` wraps Spring AI structured output calls with targeted retries and conservative JSON repair, so malformed responses do not turn into repeated `try/catch + retry + cleanup` code across your services.
 
-## The Problem
+## Why This Exists
 
-Spring AI already provides `BeanOutputConverter`, which works well when the model behaves.
+Spring AI already gives you `BeanOutputConverter`, and it works when the model returns clean JSON.
 
-Production responses often still look like this:
+Production traffic is messier. Structured output often fails because the model returns:
+
+- JSON wrapped in Markdown code fences
+- trailing commas before `}` or `]`
+- leading or trailing prose around the JSON body
+- raw newlines and control characters inside JSON strings
+- parse failures that need one targeted retry instead of a full custom recovery flow
+
+Those responses are close to valid JSON, but close is still a failed parse.
+
+### Typical broken responses
 
 ````text
 ```json
@@ -35,22 +45,19 @@ Here is the result you asked for:
 line2"}
 ```
 
-Both are close to valid JSON, but close is not enough.
+## What You Get
 
-## What This Library Does
+- targeted retries only when the failure looks like a structured output parsing problem
+- lightweight JSON repair for common low-risk issues
+- extraction of the real JSON body from noisy responses
+- trailing comma cleanup and smart quote normalization
+- escaping of raw control characters inside JSON strings
+- small typed call sites instead of repeated recovery logic
+- a Spring Boot starter for Spring AI projects
 
-- retries only when the failure looks like a structured output parsing problem
-- strips Markdown code fences and leading or trailing prose
-- extracts the JSON body from noisy responses
-- removes trailing commas
-- normalizes smart quotes
-- escapes raw control characters inside JSON strings
-- keeps the call site small and typed
-- ships with a Spring Boot auto-configuration module for Spring AI projects
+## 30-Second Integration
 
-## Before / After
-
-**Before**
+**Without the guard**
 
 ```java
 BeanOutputConverter<MovieReview> converter = new BeanOutputConverter<>(MovieReview.class);
@@ -71,7 +78,7 @@ try {
 }
 ```
 
-**After**
+**With the guard**
 
 ```java
 return outputGuard.call(
@@ -97,10 +104,20 @@ return outputGuard.call(
 
 ## Installation
 
+The starter is not published to a public artifact registry yet.
+
+Planned first public release:
+
+```text
+0.1.0-beta.1
+```
+
+Planned coordinates:
+
 ### Gradle
 
 ```groovy
-implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1.0-SNAPSHOT"
+implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1.0-beta.1"
 ```
 
 ### Maven
@@ -109,7 +126,7 @@ implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1
 <dependency>
   <groupId>io.github.kiyragjx</groupId>
   <artifactId>spring-ai-structured-output-guard-starter</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0-beta.1</version>
 </dependency>
 ```
 

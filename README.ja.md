@@ -8,15 +8,25 @@
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0.0--M1-6DB33F)](https://spring.io/projects/spring-ai)
 [![License: Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](./LICENSE)
 
-Spring AI 向けの構造化出力ガードです。
+Spring AI の構造化出力を本番環境でも信頼できるものにします。
 
-`spring-ai-structured-output-guard` は、Spring AI の構造化出力呼び出しを安全に包むための小さなライブラリです。対象を絞ったリトライ、軽量な JSON 修復、そして Spring Boot Starter を提供し、壊れやすい `try/catch + retry + cleanup` を毎回書かなくて済むようにします。
+`spring-ai-structured-output-guard` は、Spring AI の構造化出力呼び出しを包み込み、対象を絞ったリトライと保守的な JSON 修復を提供します。壊れた応答のたびに、各サービスで `try/catch + retry + cleanup` を繰り返し書かなくて済むようにするためのライブラリです。
 
-## 解決したい問題
+## なぜ必要か
 
-Spring AI の `BeanOutputConverter` は、モデルが正しい JSON を返す限り非常に便利です。
+Spring AI は `BeanOutputConverter` を提供しており、モデルがクリーンな JSON を返すなら十分に便利です。
 
-しかし実運用では、次のような応答がよく返ってきます。
+しかし実際の本番トラフィックはもっと汚く、構造化出力は次のような内容で簡単にパース失敗します。
+
+- Markdown code fence で囲まれた JSON
+- `}` や `]` の直前にある末尾カンマ
+- JSON 本体の前後に混ざる説明文や余分なテキスト
+- JSON 文字列内に含まれる生の改行や制御文字
+- 本来は 1 回の対象を絞ったリトライで済むのに、独自の復旧処理全体を書かされるようなパース失敗
+
+これらの応答は「ほぼ」正しい JSON ですが、ほぼ正しいだけでは解析に失敗します。
+
+### 典型的な壊れた応答
 
 ````text
 ```json
@@ -35,25 +45,70 @@ Here is the result you asked for:
 line2"}
 ```
 
-どちらも「ほぼ」正しい JSON ですが、解析には失敗します。
+## 得られるもの
 
-## 主な機能
+- 構造化出力の解析エラーらしい場合にだけ、対象を絞ったリトライを実行
+- よくある低リスクな問題に対する軽量な JSON 修復
+- ノイズ混じりの応答から実際の JSON 本体を抽出
+- 末尾カンマの除去とスマートクォートの正規化
+- JSON 文字列内の生の制御文字のエスケープ
+- 簡潔で型安全な呼び出しコード
+- Spring AI プロジェクトにそのまま組み込める Spring Boot Starter
 
-- 構造化出力の解析エラーらしい場合にだけリトライ
-- Markdown code fence と余分な前後文を除去
-- ノイズ混じりの応答から JSON 本体を抽出
-- 末尾カンマを除去
-- スマートクォートを正規化
-- JSON 文字列内の制御文字をエスケープ
-- 呼び出し側コードを小さく保つ
-- Spring Boot 自動設定を提供
+## 30 秒で導入
+
+**Guard なし**
+
+```java
+BeanOutputConverter<MovieReview> converter = new BeanOutputConverter<>(MovieReview.class);
+
+try {
+    String raw = chatClient.prompt()
+        .system(systemPrompt + "\n" + converter.getFormat())
+        .user(userPrompt)
+        .call()
+        .content();
+    return converter.convert(raw);
+} catch (Exception e) {
+    // retry?
+    // repair json?
+    // log?
+    // wrap exception?
+    throw e;
+}
+```
+
+**Guard あり**
+
+```java
+return outputGuard.call(
+    chatClient,
+    systemPrompt,
+    userPrompt,
+    MovieReview.class,
+    StructuredOutputCallOptions.builder()
+        .logContext("movie-review")
+        .failureMessage("Failed to parse movie review")
+        .build()
+);
+```
 
 ## インストール
+
+現在、この Starter はまだ公開アーティファクトレジストリには公開されていません。
+
+最初の公開リリース予定:
+
+```text
+0.1.0-beta.1
+```
+
+予定している依存座標:
 
 ### Gradle
 
 ```groovy
-implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1.0-SNAPSHOT"
+implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1.0-beta.1"
 ```
 
 ### Maven
@@ -62,7 +117,7 @@ implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1
 <dependency>
   <groupId>io.github.kiyragjx</groupId>
   <artifactId>spring-ai-structured-output-guard-starter</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0-beta.1</version>
 </dependency>
 ```
 
@@ -144,4 +199,3 @@ GET /demo/movie-review?movie=Interstellar
 ## コントリビュート
 
 Issue と PR を歓迎します。詳細は [CONTRIBUTING.md](./CONTRIBUTING.md) を参照してください。
-

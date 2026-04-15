@@ -8,15 +8,25 @@
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0.0--M1-6DB33F)](https://spring.io/projects/spring-ai)
 [![License: Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](./LICENSE)
 
-面向 Spring AI 的结构化输出防御层。
+让 Spring AI 的结构化输出在生产环境里更可靠。
 
-`spring-ai-structured-output-guard` 用来包装 Spring AI 的结构化输出调用，提供更有针对性的重试、轻量 JSON 修复，以及一个即插即用的 Spring Boot Starter。它解决的是生产环境里常见的那类问题：模型返回的内容“几乎”是合法 JSON，但还差一点，足以让程序在解析时直接失败。
+`spring-ai-structured-output-guard` 用来包装 Spring AI 的结构化输出调用，提供更有针对性的重试和保守的 JSON 修复，让模型返回的异常内容不再逼着你在每个服务里重复写 `try/catch + retry + cleanup`。
 
-## 这个项目解决什么问题
+## 为什么需要它
 
-Spring AI 已经提供了 `BeanOutputConverter`，模型表现稳定时体验很好。
+Spring AI 已经提供了 `BeanOutputConverter`，模型返回干净 JSON 时体验很好。
 
-但在真实业务里，你仍然会遇到这些返回：
+但真实生产流量更脏，结构化输出经常会因为下面这些内容而解析失败：
+
+- JSON 被 Markdown code fence 包裹
+- `}` 或 `]` 前出现尾随逗号
+- JSON 主体前后混入解释性文本
+- JSON 字符串里带有原始换行和控制字符
+- 本来只需要一次有针对性的重试，却不得不写整套自定义恢复逻辑的解析失败
+
+这类响应往往距离合法 JSON 只差一点，但对服务端来说，差一点就是解析失败。
+
+### 典型的坏响应
 
 ````text
 ```json
@@ -35,22 +45,19 @@ Here is the result you asked for:
 line2"}
 ```
 
-这两类内容距离合法 JSON 只差一步，但“差一点”在服务端就足够造成失败。
+## 你会得到什么
 
-## 功能概览
-
-- 只在错误看起来像“结构化输出解析失败”时才重试
-- 去掉 Markdown code fence 和无关前后缀
-- 从噪声文本中提取 JSON 主体
-- 去除尾随逗号
-- 规范化智能引号
+- 只在错误看起来像“结构化输出解析失败”时才触发有针对性的重试
+- 对常见低风险问题进行轻量 JSON 修复
+- 从带噪声的模型输出中提取真实 JSON 主体
+- 清理尾随逗号并规范化智能引号
 - 转义 JSON 字符串中的原始控制字符
-- 保持调用端代码简洁、类型安全
-- 提供 Spring Boot 自动配置，开箱即用
+- 保持调用端代码简洁，同时维持类型安全
+- 提供可直接接入 Spring AI 项目的 Spring Boot Starter
 
-## Before / After
+## 30 秒接入
 
-**Before**
+**不使用 Guard**
 
 ```java
 BeanOutputConverter<MovieReview> converter = new BeanOutputConverter<>(MovieReview.class);
@@ -67,7 +74,7 @@ try {
 }
 ```
 
-**After**
+**使用 Guard**
 
 ```java
 return outputGuard.call(
@@ -93,10 +100,20 @@ return outputGuard.call(
 
 ## 安装
 
+当前 Starter 还没有发布到公开制品仓库。
+
+计划中的首个公开版本：
+
+```text
+0.1.0-beta.1
+```
+
+计划中的依赖坐标：
+
 ### Gradle
 
 ```groovy
-implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1.0-SNAPSHOT"
+implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1.0-beta.1"
 ```
 
 ### Maven
@@ -105,7 +122,7 @@ implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1
 <dependency>
   <groupId>io.github.kiyragjx</groupId>
   <artifactId>spring-ai-structured-output-guard-starter</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0-beta.1</version>
 </dependency>
 ```
 
@@ -240,4 +257,3 @@ curl "http://localhost:8088/demo/movie-review?movie=Interstellar"
 ## 参与贡献
 
 欢迎提 issue 和 PR。贡献说明见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
-
