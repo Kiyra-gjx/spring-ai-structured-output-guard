@@ -18,14 +18,40 @@ The recommended first public release is:
 
 ## Release Checklist
 
-- add public publishing configuration for the `core` and `starter` modules
-- add POM metadata required for a public artifact release
+- publishable Gradle configuration now exists for the `core` and `starter` modules
+- POM metadata is configured in the Gradle publications
 - add at least one `starter` auto-configuration test
 - add at least one end-to-end integration or smoke test for the example flow
 - verify the build with Java 21 in local development and CI
 - publish `0.1.0-beta.1`
 - create a Git tag and GitHub Release with install instructions
 - update all README installation examples from "planned" to the real published coordinates
+
+## Publishing Commands
+
+For snapshots:
+
+```bash
+./gradlew publishToSonatypeCentral -PreleaseVersion=0.1.0-SNAPSHOT
+```
+
+For a beta or release candidate:
+
+```bash
+./gradlew publishReleaseToCentralPortal -PreleaseVersion=0.1.0-beta.1
+```
+
+## Required Environment Variables
+
+- `MAVEN_CENTRAL_USERNAME`
+- `MAVEN_CENTRAL_PASSWORD`
+- `MAVEN_SIGNING_KEY`
+- `MAVEN_SIGNING_PASSWORD`
+
+Optional:
+
+- `CENTRAL_PUBLISHING_TYPE`
+  Defaults to `user_managed`. Set it to `automatic` if you want the Central Portal to publish automatically after upload.
 
 ## Stable Release Gate
 

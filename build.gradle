@@ -1,10 +1,41 @@
+import java.net.HttpURLConnection
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import java.util.Base64
+
 plugins {
     alias(libs.plugins.spring.boot) apply false
     alias(libs.plugins.spring.dependency.management) apply false
 }
 
 group = 'io.github.kiyragjx'
-version = '0.1.0-SNAPSHOT'
+version = findProperty('releaseVersion') ?: '0.1.0-SNAPSHOT'
+
+ext {
+    repositoryOwner = 'Kiyra-gjx'
+    repositoryName = rootProject.name
+    repositoryUrl = "https://github.com/${repositoryOwner}/${repositoryName}"
+    releaseRepositoryUrl = 'https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/'
+    snapshotRepositoryUrl = 'https://central.sonatype.com/repository/maven-snapshots/'
+    isSnapshotVersion = { ->
+        version.toString().endsWith('-SNAPSHOT')
+    }
+    readPublishSecret = { String propertyName, String envName ->
+        providers.gradleProperty(propertyName)
+            .orElse(providers.environmentVariable(envName))
+            .orNull
+    }
+    moduleDisplayName = { String moduleName ->
+        moduleName == 'starter'
+            ? 'Spring AI Structured Output Guard Starter'
+            : 'Spring AI Structured Output Guard Core'
+    }
+    moduleDescription = { String moduleName ->
+        moduleName == 'starter'
+            ? 'Spring Boot starter for resilient structured output calls in Spring AI.'
+            : 'Core retry, repair, and parsing orchestration for resilient structured output handling.'
+    }
+}
 
 subprojects {
     apply plugin: 'java-library'
@@ -43,3 +74,126 @@ subprojects {
     }
 }
 
+def publishedProjects = [project(':core'), project(':starter')]
+
+configure(publishedProjects) {
+    apply plugin: 'maven-publish'
+    apply plugin: 'signing'
+
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                from components.java
+                artifactId = "${rootProject.name}-${project.name}"
+
+                pom {
+                    name = rootProject.ext.moduleDisplayName(project.name)
+                    description = rootProject.ext.moduleDescription(project.name)
+                    url = rootProject.ext.repositoryUrl
+
+                    licenses {
+                        license {
+                            name = 'The Apache License, Version 2.0'
+                            url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+                            distribution = 'repo'
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id = 'Kiyra-gjx'
+                            name = 'Kiyra'
+                            email = 'Kiyra.gjx@gmail.com'
+                            url = 'https://github.com/Kiyra-gjx'
+                        }
+                    }
+
+                    scm {
+                        url = rootProject.ext.repositoryUrl
+                        connection = "scm:git:${rootProject.ext.repositoryUrl}.git"
+                        developerConnection = "scm:git:ssh://git@github.com/${rootProject.ext.repositoryOwner}/${rootProject.ext.repositoryName}.git"
+                    }
+                }
+            }
+        }
+
+        repositories {
+            maven {
+                name = 'sonatypeCentral'
+                url = uri(rootProject.ext.isSnapshotVersion()
+                    ? rootProject.ext.snapshotRepositoryUrl
+                    : rootProject.ext.releaseRepositoryUrl)
+
+                credentials {
+                    username = rootProject.ext.readPublishSecret('mavenCentralUsername', 'MAVEN_CENTRAL_USERNAME')
+                    password = rootProject.ext.readPublishSecret('mavenCentralPassword', 'MAVEN_CENTRAL_PASSWORD')
+                }
+            }
+        }
+    }
+
+    signing {
+        def signingKey = rootProject.ext.readPublishSecret('signingKey', 'MAVEN_SIGNING_KEY')
+        def signingPassword = rootProject.ext.readPublishSecret('signingPassword', 'MAVEN_SIGNING_PASSWORD')
+
+        if (signingKey) {
+            useInMemoryPgpKeys(signingKey, signingPassword)
+        }
+
+        required {
+            !rootProject.ext.isSnapshotVersion() &&
+                gradle.taskGraph.allTasks.any { task ->
+                    task.name.startsWith('publish') || task.name.startsWith('sign')
+                }
+        }
+
+        sign publishing.publications.mavenJava
+    }
+}
+
+tasks.register('publishToSonatypeCentral') {
+    group = 'publishing'
+    description = 'Publishes the core and starter modules to the Sonatype Central compatible repository for the current version.'
+    dependsOn ':core:publishMavenJavaPublicationToSonatypeCentralRepository'
+    dependsOn ':starter:publishMavenJavaPublicationToSonatypeCentralRepository'
+}
+
+tasks.register('publishReleaseToCentralPortal') {
+    group = 'publishing'
+    description = 'Publishes a non-SNAPSHOT release and notifies the Central Portal to process the uploaded deployment.'
+    dependsOn 'publishToSonatypeCentral'
+    onlyIf {
+        !rootProject.ext.isSnapshotVersion()
+    }
+
+    doLast {
+        String username = rootProject.ext.readPublishSecret('mavenCentralUsername', 'MAVEN_CENTRAL_USERNAME')
+        String password = rootProject.ext.readPublishSecret('mavenCentralPassword', 'MAVEN_CENTRAL_PASSWORD')
+
+        if (!username || !password) {
+            throw new GradleException('Central Portal credentials are required. Set MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD or matching Gradle properties.')
+        }
+
+        String publishingType = findProperty('centralPublishingType')
+            ?: System.getenv('CENTRAL_PUBLISHING_TYPE')
+            ?: 'user_managed'
+        String namespace = group.toString()
+        String encodedPublishingType = URLEncoder.encode(publishingType, StandardCharsets.UTF_8)
+        URL endpoint = new URL("https://ossrh-staging-api.central.sonatype.com/manual/upload/defaultRepository/${namespace}?publishing_type=${encodedPublishingType}")
+        String bearerToken = Base64.encoder.encodeToString("${username}:${password}".getBytes(StandardCharsets.UTF_8))
+        HttpURLConnection connection = (HttpURLConnection) endpoint.openConnection()
+        connection.requestMethod = 'POST'
+        connection.doOutput = true
+        connection.setRequestProperty('Authorization', "Bearer ${bearerToken}")
+        connection.setRequestProperty('Accept', 'application/json')
+        connection.outputStream.close()
+
+        int status = connection.responseCode
+        if (status < 200 || status >= 300) {
+            String responseBody = connection.errorStream?.getText(StandardCharsets.UTF_8.name()) ?: ''
+            throw new GradleException("Central Portal upload notification failed with HTTP ${status}${responseBody ? ": ${responseBody}" : ''}")
+        }
+
+        logger.lifecycle("Central Portal accepted the release notification with publishing_type=${publishingType}.")
+    }
+}

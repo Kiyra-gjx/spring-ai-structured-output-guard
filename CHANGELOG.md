@@ -8,7 +8,8 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ### Added
 
-- planned publishing to GitHub and package registry
+- public publishing configuration for `core` and `starter`
+- Sonatype Central compatible publication tasks and signing hooks
 - issue templates, contribution guide, and release-oriented repository metadata
 
 ## [0.1.0-SNAPSHOT] - 2026-04-13
@@ -22,4 +23,3 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 - unit tests for repair and retry behavior
 - runnable Spring Boot example application
 - GitHub Actions CI workflow
-
