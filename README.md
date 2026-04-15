@@ -104,27 +104,27 @@ return outputGuard.call(
 
 ## Installation
 
-The starter is not published to a public artifact registry yet.
+The starter is published on Maven Central.
 
-Planned first public release:
+Released version:
 
 ```text
 0.1.0-beta.1
 ```
 
-Planned coordinates:
+Coordinates:
 
 ### Gradle
 
 ```groovy
-implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1.0-beta.1"
+implementation "io.github.kiyra-gjx:spring-ai-structured-output-guard-starter:0.1.0-beta.1"
 ```
 
 ### Maven
 
 ```xml
 <dependency>
-  <groupId>io.github.kiyragjx</groupId>
+  <groupId>io.github.kiyra-gjx</groupId>
   <artifactId>spring-ai-structured-output-guard-starter</artifactId>
   <version>0.1.0-beta.1</version>
 </dependency>
@@ -241,7 +241,7 @@ If you intend to publish this publicly, moving to the latest stable Spring AI li
 
 ## Release Plan
 
-Planned release steps:
+Next release steps:
 
 1. stabilize API names and package layout
 2. add fake-chat-model integration tests

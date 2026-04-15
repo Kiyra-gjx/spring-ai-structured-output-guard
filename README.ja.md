@@ -95,27 +95,27 @@ return outputGuard.call(
 
 ## インストール
 
-現在、この Starter はまだ公開アーティファクトレジストリには公開されていません。
+この Starter は Maven Central に公開済みです。
 
-最初の公開リリース予定:
+公開済みバージョン:
 
 ```text
 0.1.0-beta.1
 ```
 
-予定している依存座標:
+依存座標:
 
 ### Gradle
 
 ```groovy
-implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1.0-beta.1"
+implementation "io.github.kiyra-gjx:spring-ai-structured-output-guard-starter:0.1.0-beta.1"
 ```
 
 ### Maven
 
 ```xml
 <dependency>
-  <groupId>io.github.kiyragjx</groupId>
+  <groupId>io.github.kiyra-gjx</groupId>
   <artifactId>spring-ai-structured-output-guard-starter</artifactId>
   <version>0.1.0-beta.1</version>
 </dependency>

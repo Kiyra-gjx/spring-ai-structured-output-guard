@@ -1,3 +1,4 @@
+import groovy.json.JsonSlurper
 import java.net.HttpURLConnection
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -8,7 +9,7 @@ plugins {
     alias(libs.plugins.spring.dependency.management) apply false
 }
 
-group = 'io.github.kiyragjx'
+group = 'io.github.kiyra-gjx'
 version = findProperty('releaseVersion') ?: '0.1.0-SNAPSHOT'
 
 ext {
@@ -179,21 +180,122 @@ tasks.register('publishReleaseToCentralPortal') {
             ?: 'user_managed'
         String namespace = group.toString()
         String encodedPublishingType = URLEncoder.encode(publishingType, StandardCharsets.UTF_8)
-        URL endpoint = new URL("https://ossrh-staging-api.central.sonatype.com/manual/upload/defaultRepository/${namespace}?publishing_type=${encodedPublishingType}")
         String bearerToken = Base64.encoder.encodeToString("${username}:${password}".getBytes(StandardCharsets.UTF_8))
-        HttpURLConnection connection = (HttpURLConnection) endpoint.openConnection()
-        connection.requestMethod = 'POST'
-        connection.doOutput = true
-        connection.setRequestProperty('Authorization', "Bearer ${bearerToken}")
-        connection.setRequestProperty('Accept', 'application/json')
-        connection.outputStream.close()
 
-        int status = connection.responseCode
-        if (status < 200 || status >= 300) {
-            String responseBody = connection.errorStream?.getText(StandardCharsets.UTF_8.name()) ?: ''
-            throw new GradleException("Central Portal upload notification failed with HTTP ${status}${responseBody ? ": ${responseBody}" : ''}")
+        def createConnection = { URL endpoint, String method ->
+            HttpURLConnection connection = (HttpURLConnection) endpoint.openConnection()
+            connection.requestMethod = method
+            connection.setRequestProperty('Authorization', "Bearer ${bearerToken}")
+            connection.setRequestProperty('Accept', 'application/json')
+            if (method != 'GET') {
+                connection.doOutput = true
+            }
+            connection
         }
 
-        logger.lifecycle("Central Portal accepted the release notification with publishing_type=${publishingType}.")
+        def readResponseBody = { HttpURLConnection connection ->
+            def stream = connection.responseCode >= 400 ? connection.errorStream : connection.inputStream
+            stream?.getText(StandardCharsets.UTF_8.name()) ?: ''
+        }
+
+        def notifyPortal = { URL endpoint, String description ->
+            HttpURLConnection connection = createConnection(endpoint, 'POST')
+            connection.outputStream.close()
+            int status = connection.responseCode
+            String responseBody = readResponseBody(connection)
+            if (status < 200 || status >= 300) {
+                throw new GradleException("${description} failed with HTTP ${status}${responseBody ? ": ${responseBody}" : ''}")
+            }
+        }
+
+        try {
+            URL defaultRepositoryEndpoint = new URL("https://ossrh-staging-api.central.sonatype.com/manual/upload/defaultRepository/${namespace}?publishing_type=${encodedPublishingType}")
+            notifyPortal(defaultRepositoryEndpoint, 'Central Portal namespace upload notification')
+            logger.lifecycle("Central Portal accepted the release notification for namespace ${namespace} with publishing_type=${publishingType}.")
+            return
+        } catch (GradleException defaultRepositoryFailure) {
+            logger.warn("${defaultRepositoryFailure.message} Falling back to repository-key upload.")
+        }
+
+        def searchRepositories = { String ipFilter, String stateFilter = null, boolean includeProfile = true ->
+            List<String> queryParameters = ["ip=${URLEncoder.encode(ipFilter, StandardCharsets.UTF_8)}"]
+            if (stateFilter) {
+                queryParameters << "state=${URLEncoder.encode(stateFilter, StandardCharsets.UTF_8)}"
+            }
+            if (includeProfile) {
+                queryParameters << "profile_id=${URLEncoder.encode(namespace, StandardCharsets.UTF_8)}"
+            }
+            URL searchEndpoint = new URL("https://ossrh-staging-api.central.sonatype.com/manual/search/repositories?${queryParameters.join('&')}")
+            HttpURLConnection searchConnection = createConnection(searchEndpoint, 'GET')
+            int searchStatus = searchConnection.responseCode
+            String searchBody = readResponseBody(searchConnection)
+            if (searchStatus < 200 || searchStatus >= 300) {
+                throw new GradleException("Central Portal repository search failed with HTTP ${searchStatus}${searchBody ? ": ${searchBody}" : ''}")
+            }
+
+            def parsed = new JsonSlurper().parseText(searchBody)
+            if (parsed instanceof Map && parsed.repositories instanceof List) {
+                return parsed.repositories
+            }
+            []
+        }
+
+        List<Map> openRepositories = []
+        for (Map searchStrategy : [
+            [ip: 'client', state: 'open', includeProfile: true],
+            [ip: 'any', state: 'open', includeProfile: true],
+            [ip: 'client', state: 'open', includeProfile: false],
+            [ip: 'any', state: 'open', includeProfile: false]
+        ]) {
+            openRepositories = searchRepositories(searchStrategy.ip as String, searchStrategy.state as String, searchStrategy.includeProfile as boolean)
+            if (openRepositories) {
+                break
+            }
+        }
+
+        if (!openRepositories) {
+            List<Map> visibleRepositories = []
+            for (Map searchStrategy : [
+                [ip: 'client', state: null, includeProfile: true],
+                [ip: 'any', state: null, includeProfile: true],
+                [ip: 'client', state: null, includeProfile: false],
+                [ip: 'any', state: null, includeProfile: false]
+            ]) {
+                visibleRepositories = searchRepositories(searchStrategy.ip as String, searchStrategy.state as String, searchStrategy.includeProfile as boolean)
+                if (visibleRepositories) {
+                    break
+                }
+            }
+
+            if (visibleRepositories) {
+                String repositorySummary = visibleRepositories.collect { repo ->
+                    String key = repo.key ?: 'unknown'
+                    String state = repo.state ?: 'unknown'
+                    String deploymentId = repo.portal_deployment_id ?: 'n/a'
+                    "${key}[state=${state}, deployment=${deploymentId}]"
+                }.join(', ')
+                throw new GradleException("Central Portal repository-key fallback found repositories, but none were open enough to auto-select: ${repositorySummary}.")
+            }
+
+            throw new GradleException("Central Portal repository-key fallback could not find any staging repositories for the current credentials, even without profile filtering.")
+        }
+
+        if (openRepositories.size() > 1) {
+            String repositorySummary = openRepositories.collect { repo ->
+                String key = repo.key ?: 'unknown'
+                String description = repo.description ?: ''
+                description ? "${key} (${description})" : key
+            }.join(', ')
+            throw new GradleException("Central Portal repository-key fallback found multiple open staging repositories: ${repositorySummary}. Drop the stale ones in the Portal or via the manual drop endpoint, then retry.")
+        }
+
+        String repositoryKey = openRepositories.first().key?.toString()
+        if (!repositoryKey) {
+            throw new GradleException("Central Portal repository-key fallback found an open repository, but its key was missing in the search response.")
+        }
+
+        URL repositoryEndpoint = new URL("https://ossrh-staging-api.central.sonatype.com/manual/upload/repository/${repositoryKey}?publishing_type=${encodedPublishingType}")
+        notifyPortal(repositoryEndpoint, "Central Portal repository upload notification for ${repositoryKey}")
+        logger.lifecycle("Central Portal accepted the release notification for repository ${repositoryKey} with publishing_type=${publishingType}.")
     }
 }

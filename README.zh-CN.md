@@ -100,27 +100,27 @@ return outputGuard.call(
 
 ## 安装
 
-当前 Starter 还没有发布到公开制品仓库。
+当前 Starter 已发布到 Maven Central。
 
-计划中的首个公开版本：
+已发布版本：
 
 ```text
 0.1.0-beta.1
 ```
 
-计划中的依赖坐标：
+依赖坐标：
 
 ### Gradle
 
 ```groovy
-implementation "io.github.kiyragjx:spring-ai-structured-output-guard-starter:0.1.0-beta.1"
+implementation "io.github.kiyra-gjx:spring-ai-structured-output-guard-starter:0.1.0-beta.1"
 ```
 
 ### Maven
 
 ```xml
 <dependency>
-  <groupId>io.github.kiyragjx</groupId>
+  <groupId>io.github.kiyra-gjx</groupId>
   <artifactId>spring-ai-structured-output-guard-starter</artifactId>
   <version>0.1.0-beta.1</version>
 </dependency>
@@ -237,7 +237,7 @@ curl "http://localhost:8088/demo/movie-review?movie=Interstellar"
 
 ## 发布计划
 
-计划中的发布步骤：
+后续发布步骤：
 
 1. 稳定 API 命名和包结构
 2. 增加 fake chat model 集成测试
