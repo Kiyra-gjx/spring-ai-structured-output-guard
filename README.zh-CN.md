@@ -12,6 +12,8 @@
 
 `spring-ai-structured-output-guard` 用来包装 Spring AI 的结构化输出调用，提供更有针对性的重试和保守的 JSON 修复，让模型返回的异常内容不再逼着你在每个服务里重复写 `try/catch + retry + cleanup`。
 
+已经通过独立 Maven Demo 验证外部接入，使用的是已发布到 Maven Central 的依赖坐标，以及 Spring AI 加阿里云百炼兼容 OpenAI Chat Completions 的调用方式。
+
 ## 为什么需要它
 
 Spring AI 已经提供了 `BeanOutputConverter`，模型返回干净 JSON 时体验很好。

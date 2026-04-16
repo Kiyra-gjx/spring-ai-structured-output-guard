@@ -12,6 +12,8 @@ Haz que las salidas estructuradas de Spring AI sean más fiables en producción.
 
 `spring-ai-structured-output-guard` envuelve las llamadas de salida estructurada de Spring AI con reintentos dirigidos y una reparación conservadora de JSON, para que las respuestas defectuosas no te obliguen a repetir `try/catch + retry + cleanup` en cada servicio.
 
+La integración externa ya fue verificada con un demo Maven independiente usando las coordenadas publicadas en Maven Central, Spring AI y la API OpenAI-compatible Chat Completions de Alibaba Cloud Bailian.
+
 ## Por qué existe
 
 Spring AI ya ofrece `BeanOutputConverter`, y funciona bien cuando el modelo devuelve JSON limpio.
