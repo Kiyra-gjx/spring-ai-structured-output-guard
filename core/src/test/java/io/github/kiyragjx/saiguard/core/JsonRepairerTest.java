@@ -40,4 +40,36 @@ class JsonRepairerTest {
 
         assertEquals("{\"message\":\"line1\\nline2\"}", repairer.repair(raw));
     }
+
+    @Test
+    void shouldExtractJsonBodyFromLeadingText() {
+        String raw = """
+            Here is the result you asked for:
+            {"name":"guard"}
+            Thanks.
+            """;
+
+        assertEquals("{\"name\":\"guard\"}", repairer.repair(raw));
+    }
+
+    @Test
+    void shouldNormalizeSmartQuotes() {
+        String raw = "{\u201Cname\u201D:\u201Cguard\u201D}";
+
+        assertEquals("{\"name\":\"guard\"}", repairer.repair(raw));
+    }
+
+    @Test
+    void shouldLeaveSingleQuotedPseudoJsonUnchanged() {
+        String raw = "{'name':'guard'}";
+
+        assertEquals(raw, repairer.repair(raw));
+    }
+
+    @Test
+    void shouldLeaveTruncatedJsonUnchanged() {
+        String raw = "{\"name\":\"guard\"";
+
+        assertEquals(raw, repairer.repair(raw));
+    }
 }

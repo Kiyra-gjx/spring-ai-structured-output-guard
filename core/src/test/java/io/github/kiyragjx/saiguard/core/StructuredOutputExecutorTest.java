@@ -59,6 +59,32 @@ class StructuredOutputExecutorTest {
     }
 
     @Test
+    void shouldRetryWhenJsonIsTruncatedAndRepairCannotRecoverIt() {
+        StructuredOutputExecutor executor = new StructuredOutputExecutor();
+        AtomicInteger attempts = new AtomicInteger();
+
+        String result = executor.execute(StructuredOutputExecution.<String>builder()
+            .systemPrompt("Return JSON")
+            .userPrompt("hi")
+            .responder((systemPrompt, userPrompt) -> {
+                if (attempts.incrementAndGet() == 1) {
+                    return "{\"value\":\"ok\"";
+                }
+                return "{\"value\":\"ok\"}";
+            })
+            .parser(raw -> {
+                if (!raw.endsWith("}")) {
+                    throw new IllegalArgumentException("unexpected end-of-input");
+                }
+                return raw;
+            })
+            .build());
+
+        assertEquals("{\"value\":\"ok\"}", result);
+        assertEquals(2, attempts.get());
+    }
+
+    @Test
     void shouldWrapWithStructuredOutputExceptionWhenRetryIsExhausted() {
         StructuredOutputExecutor executor = new StructuredOutputExecutor(
             StructuredOutputOptions.builder().maxAttempts(1).build(),
@@ -77,4 +103,3 @@ class StructuredOutputExecutorTest {
             .build()));
     }
 }
-
