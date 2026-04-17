@@ -8,17 +8,17 @@
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0.0--M1-6DB33F)](https://spring.io/projects/spring-ai)
 [![License: Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](./LICENSE)
 
-让 Spring AI 的结构化输出在生产环境里更可靠。
+一个给 Spring AI 结构化输出调用使用的轻量保护层。
 
-`spring-ai-structured-output-guard` 用来包装 Spring AI 的结构化输出调用，提供更有针对性的重试和保守的 JSON 修复，让模型返回的异常内容不再逼着你在每个服务里重复写 `try/catch + retry + cleanup`。
+`spring-ai-structured-output-guard` 在 Spring AI 的结构化输出流程外面加了一层很薄的保护：只在看起来像解析问题时重试，并在放弃前做有限的 JSON 清理。
 
-已经通过独立 Maven Demo 验证外部接入，使用的是已发布到 Maven Central 的依赖坐标，以及 Spring AI 加阿里云百炼兼容 OpenAI Chat Completions 的调用方式。
+外部接入已经通过独立 Maven 项目验证，使用的是 Maven Central 中已发布的依赖坐标和 OpenAI 兼容的 Chat Completions API。
 
 ## 为什么需要它
 
-Spring AI 已经提供了 `BeanOutputConverter`，模型返回干净 JSON 时体验很好。
+Spring AI 已经提供了 `BeanOutputConverter`。模型老老实实返回合法 JSON 时，它本身就够用了。
 
-但真实生产流量更脏，结构化输出经常会因为下面这些内容而解析失败：
+这个库主要处理另一类情况：返回内容已经很接近 JSON，但还差一点。常见问题包括：
 
 - JSON 被 Markdown code fence 包裹
 - `}` 或 `]` 前出现尾随逗号
@@ -26,7 +26,7 @@ Spring AI 已经提供了 `BeanOutputConverter`，模型返回干净 JSON 时体
 - JSON 字符串里带有原始换行和控制字符
 - 本来只需要一次有针对性的重试，却不得不写整套自定义恢复逻辑的解析失败
 
-这类响应往往距离合法 JSON 只差一点，但对服务端来说，差一点就是解析失败。
+这类问题未必值得你在业务代码里写一整套兜底逻辑，但如果完全不处理，又很容易变成线上解析失败。
 
 ### 典型的坏响应
 
@@ -47,17 +47,17 @@ Here is the result you asked for:
 line2"}
 ```
 
-## 你会得到什么
+## 它做了什么
 
-- 只在错误看起来像“结构化输出解析失败”时才触发有针对性的重试
-- 对常见低风险问题进行轻量 JSON 修复
-- 从带噪声的模型输出中提取真实 JSON 主体
+- 只在错误看起来像结构化输出解析失败时才重试
+- 对常见低风险问题做轻量 JSON 修复
+- 从带噪声的模型输出中提取真正的 JSON 主体
 - 清理尾随逗号并规范化智能引号
 - 转义 JSON 字符串中的原始控制字符
 - 保持调用端代码简洁，同时维持类型安全
 - 提供可直接接入 Spring AI 项目的 Spring Boot Starter
 
-## 30 秒接入
+## 基本用法
 
 **不使用 Guard**
 
@@ -104,11 +104,13 @@ return outputGuard.call(
 
 当前 Starter 已发布到 Maven Central。
 
-已发布版本：
+当前已发布版本：
 
 ```text
 0.1.0-beta.1
 ```
+
+正式版 `0.1.0` 正在准备中。
 
 依赖坐标：
 
@@ -220,6 +222,8 @@ GET /demo/movie-review?movie=Interstellar
 curl "http://localhost:8088/demo/movie-review?movie=Interstellar"
 ```
 
+如果你用的是 Windows PowerShell，建议直接用 `curl.exe` 或 `Invoke-RestMethod`，避免碰到 `curl` 别名提示。
+
 ## 本地开发
 
 ```bash
@@ -229,20 +233,20 @@ curl "http://localhost:8088/demo/movie-review?movie=Interstellar"
 
 ## 兼容性
 
-当前仓库先基于本地已可用的版本搭建：
+当前项目的构建和测试基于：
 
 - Spring Boot `4.0.1`
 - Spring AI `2.0.0-M1`
 - Java `21`
 
-如果后续要正式公开发布，建议在 API 形态稳定后切到 Spring AI 的最新稳定版。
+当前发布线基于 Spring AI `2.0.0-M1`。等 API 形态稳定后，再切到更新的稳定版会更合适。
 
 ## 发布计划
 
-后续发布步骤：
+当前 `0.1.0` 剩余的发布工作主要是：
 
-1. 稳定 API 命名和包结构
-2. 增加 fake chat model 集成测试
+1. 最终确认公开 API 的命名和包结构
+2. 把安装示例里的 `0.1.0-beta.1` 切换成 `0.1.0`
 3. 发布 `0.1.0`
 4. 在 `0.2.x` 增加指标和扩展点
 

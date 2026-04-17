@@ -8,17 +8,17 @@
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0.0--M1-6DB33F)](https://spring.io/projects/spring-ai)
 [![License: Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](./LICENSE)
 
-Make Spring AI structured outputs reliable in production.
+A small guard layer for Spring AI structured output calls.
 
-`spring-ai-structured-output-guard` wraps Spring AI structured output calls with targeted retries and conservative JSON repair, so malformed responses do not turn into repeated `try/catch + retry + cleanup` code across your services.
+`spring-ai-structured-output-guard` adds a small guard layer around Spring AI structured output flows. It retries only when the failure looks like a parsing problem and applies lightweight JSON cleanup before giving up.
 
-Verified externally with a standalone Maven demo against the published Maven Central coordinates, using Spring AI and Alibaba Cloud Bailian's OpenAI-compatible Chat Completions API.
+External integration has been verified with a standalone Maven project using the published Maven Central coordinates and an OpenAI-compatible Chat Completions API.
 
 ## Why This Exists
 
-Spring AI already gives you `BeanOutputConverter`, and it works when the model returns clean JSON.
+Spring AI already gives you `BeanOutputConverter`, and it works well when the model returns valid JSON.
 
-Production traffic is messier. Structured output often fails because the model returns:
+This library is for the cases where the response is close to JSON, but not quite. Common examples are:
 
 - JSON wrapped in Markdown code fences
 - trailing commas before `}` or `]`
@@ -26,7 +26,7 @@ Production traffic is messier. Structured output often fails because the model r
 - raw newlines and control characters inside JSON strings
 - parse failures that need one targeted retry instead of a full custom recovery flow
 
-Those responses are close to valid JSON, but close is still a failed parse.
+These responses are often recoverable. Without a small guard layer, they usually turn into repeated parsing and retry code in application services.
 
 ### Typical broken responses
 
@@ -47,17 +47,17 @@ Here is the result you asked for:
 line2"}
 ```
 
-## What You Get
+## What It Does
 
-- targeted retries only when the failure looks like a structured output parsing problem
-- lightweight JSON repair for common low-risk issues
-- extraction of the real JSON body from noisy responses
-- trailing comma cleanup and smart quote normalization
-- escaping of raw control characters inside JSON strings
-- small typed call sites instead of repeated recovery logic
-- a Spring Boot starter for Spring AI projects
+- retries only when the failure looks like a structured output parsing problem
+- applies lightweight JSON cleanup for common low-risk issues
+- extracts the actual JSON body from noisy responses
+- cleans up trailing commas and normalizes smart quotes
+- escapes raw control characters inside JSON strings
+- keeps call sites small and typed
+- provides a Spring Boot starter for Spring AI projects
 
-## 30-Second Integration
+## Quick Example
 
 **Without the guard**
 
@@ -108,11 +108,13 @@ return outputGuard.call(
 
 The starter is published on Maven Central.
 
-Released version:
+Current published version:
 
 ```text
 0.1.0-beta.1
 ```
+
+A stable `0.1.0` release is currently being prepared.
 
 Coordinates:
 
@@ -224,6 +226,8 @@ Then call:
 curl "http://localhost:8088/demo/movie-review?movie=Interstellar"
 ```
 
+On Windows PowerShell, prefer `curl.exe` or `Invoke-RestMethod` instead of the `curl` alias.
+
 ## Local Development
 
 ```bash
@@ -233,20 +237,20 @@ curl "http://localhost:8088/demo/movie-review?movie=Interstellar"
 
 ## Compatibility
 
-This repository is currently scaffolded against versions already available in the local workspace cache:
+The project is currently built and tested against:
 
 - Spring Boot `4.0.1`
 - Spring AI `2.0.0-M1`
 - Java `21`
 
-If you intend to publish this publicly, moving to the latest stable Spring AI line is recommended once the API shape is finalized.
+The current release line targets Spring AI `2.0.0-M1`. Moving to a later stable Spring AI line is still a reasonable follow-up once the API surface settles.
 
 ## Release Plan
 
-Next release steps:
+Stable `0.1.0` is in progress. The remaining release work is:
 
-1. stabilize API names and package layout
-2. add fake-chat-model integration tests
+1. finalize the public API names and package layout
+2. switch installation examples from `0.1.0-beta.1` to `0.1.0`
 3. publish `0.1.0`
 4. add metrics and extension points in `0.2.x`
 

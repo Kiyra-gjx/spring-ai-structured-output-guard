@@ -8,17 +8,17 @@
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0.0--M1-6DB33F)](https://spring.io/projects/spring-ai)
 [![License: Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](./LICENSE)
 
-Haz que las salidas estructuradas de Spring AI sean más fiables en producción.
+Una pequeña capa de protección para las llamadas de salida estructurada de Spring AI.
 
-`spring-ai-structured-output-guard` envuelve las llamadas de salida estructurada de Spring AI con reintentos dirigidos y una reparación conservadora de JSON, para que las respuestas defectuosas no te obliguen a repetir `try/catch + retry + cleanup` en cada servicio.
+`spring-ai-structured-output-guard` añade una capa pequeña de protección alrededor del flujo de salida estructurada de Spring AI. Reintenta solo cuando el fallo parece un problema de parseo y aplica una limpieza ligera de JSON antes de fallar definitivamente.
 
-La integración externa ya fue verificada con un demo Maven independiente usando las coordenadas publicadas en Maven Central, Spring AI y la API OpenAI-compatible Chat Completions de Alibaba Cloud Bailian.
+La integración externa ya fue verificada con un proyecto Maven independiente usando las coordenadas publicadas en Maven Central y una API compatible con OpenAI Chat Completions.
 
 ## Por qué existe
 
-Spring AI ya ofrece `BeanOutputConverter`, y funciona bien cuando el modelo devuelve JSON limpio.
+Spring AI ya ofrece `BeanOutputConverter`, y funciona bien cuando el modelo devuelve JSON válido.
 
-Pero el tráfico real de producción es más sucio. La salida estructurada suele fallar cuando el modelo devuelve:
+Esta librería apunta a otro caso: respuestas que están cerca de ser JSON, pero no lo suficiente. Los problemas más comunes son:
 
 - JSON envuelto en Markdown code fences
 - comas finales antes de `}` o `]`
@@ -26,7 +26,7 @@ Pero el tráfico real de producción es más sucio. La salida estructurada suele
 - saltos de línea en bruto y caracteres de control dentro de cadenas JSON
 - fallos de parseo que en realidad solo necesitan un reintento dirigido, no un flujo completo de recuperación
 
-Estas respuestas están muy cerca de ser JSON válido, pero estar cerca no basta para que el parser las acepte.
+Este tipo de respuesta suele terminar en código repetido de parseo, reintentos y manejo de errores dentro de la aplicación.
 
 ### Respuestas rotas típicas
 
@@ -49,17 +49,17 @@ Here is the result you asked for:
 line2"}
 ```
 
-## Qué obtienes
+## Qué hace
 
-- reintentos dirigidos solo cuando el error parece ser de parseo estructurado
+- reintentos solo cuando el error parece ser de parseo estructurado
 - reparación ligera de JSON para problemas comunes y de bajo riesgo
 - extracción del cuerpo JSON real desde respuestas con ruido
 - limpieza de comas finales y normalización de comillas tipográficas
-- escape de caracteres de control en bruto dentro de cadenas JSON
-- código de llamada más pequeño y con tipos claros
+- escape de caracteres de control dentro de cadenas JSON
+- código de llamada más pequeño y tipado
 - un Spring Boot Starter listo para integrarse en proyectos con Spring AI
 
-## Integración en 30 segundos
+## Ejemplo rápido
 
 **Sin el guard**
 
@@ -101,11 +101,13 @@ return outputGuard.call(
 
 Este Starter ya está publicado en Maven Central.
 
-Versión publicada:
+Versión publicada actualmente:
 
 ```text
 0.1.0-beta.1
 ```
+
+La versión estable `0.1.0` está en preparación.
 
 Coordenadas:
 
@@ -176,6 +178,8 @@ Ejecución:
 ./gradlew :example:bootRun
 ```
 
+En Windows PowerShell conviene usar `curl.exe` o `Invoke-RestMethod` en lugar del alias `curl`.
+
 ## Desarrollo local
 
 ```bash
@@ -185,13 +189,22 @@ Ejecución:
 
 ## Compatibilidad
 
-La base actual del proyecto usa:
+El proyecto se compila y se prueba actualmente con:
 
 - Spring Boot `4.0.1`
 - Spring AI `2.0.0-M1`
 - Java `21`
 
-Antes de una publicación pública, conviene migrar a una línea estable de Spring AI.
+La línea actual de publicación sigue usando Spring AI `2.0.0-M1`. Cuando la API quede más asentada, será razonable moverla a una línea estable más reciente.
+
+## Estado de la release
+
+El trabajo principal que queda antes de `0.1.0` es:
+
+1. cerrar los nombres públicos de la API y la estructura de paquetes
+2. cambiar los ejemplos de instalación de `0.1.0-beta.1` a `0.1.0`
+3. publicar `0.1.0`
+4. añadir métricas y puntos de extensión en `0.2.x`
 
 ## Roadmap
 
