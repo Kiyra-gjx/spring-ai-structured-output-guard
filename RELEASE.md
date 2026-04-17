@@ -1,16 +1,17 @@
 # Release Plan
 
-This repository is now in active preparation for a `0.1.0` stable release.
+`0.1.0` has been released.
 
-The first public beta has already been published:
+Published releases:
 
 ```text
+0.1.0
 0.1.0-beta.1
 ```
 
 ## Current Status
 
-- `0.1.0-beta.1` is published on Maven Central and has a GitHub Release + tag
+- `0.1.0` is published on Maven Central and has a GitHub Release + tag
 - the project currently targets Spring Boot `4.0.1` and Spring AI `2.0.0-M1`
 - the `starter` path now has auto-configuration coverage
 - the `example` flow now has a controller-level smoke test
@@ -29,13 +30,11 @@ Completed:
 - create a Git tag and GitHub Release with install instructions
 - update all README installation examples to the published beta coordinates
 
-Remaining before `0.1.0`:
+Next follow-up items:
 
-- run one more external verification against the final `0.1.0` coordinates
-- confirm there are no planned API renames for the public starter entry points
-- update README installation examples from `0.1.0-beta.1` to `0.1.0`
-- publish `0.1.0`
-- create the `v0.1.0` tag and GitHub Release
+- keep the public API stable across `0.1.x`
+- monitor compatibility with newer Spring AI releases
+- document the next release flow when `0.1.1` or `0.2.0` is planned
 
 ## Publishing Commands
 
@@ -51,7 +50,7 @@ For a beta or release candidate:
 ./gradlew publishReleaseToCentralPortal -PreleaseVersion=0.1.0-beta.1
 ```
 
-For the stable release:
+For a stable release:
 
 ```bash
 ./gradlew publishReleaseToCentralPortal -PreleaseVersion=0.1.0
@@ -60,13 +59,13 @@ For the stable release:
 On Windows PowerShell, prefer one of these forms to avoid argument parsing issues with dotted version numbers:
 
 ```powershell
-.\gradlew.bat publishReleaseToCentralPortal "-PreleaseVersion=0.1.0"
+.\gradlew.bat publishReleaseToCentralPortal "-PreleaseVersion=0.1.1"
 ```
 
 or:
 
 ```powershell
-$env:ORG_GRADLE_PROJECT_releaseVersion = "0.1.0"
+$env:ORG_GRADLE_PROJECT_releaseVersion = "0.1.1"
 .\gradlew.bat publishReleaseToCentralPortal
 ```
 
@@ -79,13 +78,13 @@ You do not have to remember the full command if you publish from IDEA.
 1. Open the Gradle tool window.
 2. Find the root project task `publishing > publishReleaseToCentralPortal`.
 3. Run it from the UI.
-4. If you need to publish `0.1.0`, edit the run configuration for that task and add:
+4. If you need to publish a specific version, edit the run configuration for that task and add:
 
 ```text
--PreleaseVersion=0.1.0
+-PreleaseVersion=0.1.1
 ```
 
-If the parameter is not passed through correctly in PowerShell, set `ORG_GRADLE_PROJECT_releaseVersion=0.1.0` in the run configuration environment variables instead.
+If the parameter is not passed through correctly in PowerShell, set `ORG_GRADLE_PROJECT_releaseVersion` in the run configuration environment variables instead.
 
 Environment variables still need to be present in the run configuration:
 
@@ -125,9 +124,8 @@ Optional:
 
 ## Stable Release Gate
 
-Consider `0.1.0` only after:
+The `0.1.0` release baseline is:
 
-- the beta coordinates have been installed successfully outside this repository at least once more
-- the API names feel stable enough to keep for the first stable release
-- Spring AI compatibility is considered acceptable for a `0.1.x` line
+- the published coordinates work in a standalone external project
 - the full test suite is green with Java 21
+- the repository example application runs successfully

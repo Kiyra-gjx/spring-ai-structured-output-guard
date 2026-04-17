@@ -6,7 +6,6 @@ on:
       release_version:
         description: Release version to publish
         required: true
-        default: 0.1.0
       run_tests:
         description: Run the Gradle test suite before publishing
         required: true

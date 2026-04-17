@@ -107,17 +107,15 @@ return outputGuard.call(
 当前已发布版本：
 
 ```text
-0.1.0-beta.1
+0.1.0
 ```
-
-正式版 `0.1.0` 正在准备中。
 
 依赖坐标：
 
 ### Gradle
 
 ```groovy
-implementation "io.github.kiyra-gjx:spring-ai-structured-output-guard-starter:0.1.0-beta.1"
+implementation "io.github.kiyra-gjx:spring-ai-structured-output-guard-starter:0.1.0"
 ```
 
 ### Maven
@@ -126,7 +124,7 @@ implementation "io.github.kiyra-gjx:spring-ai-structured-output-guard-starter:0.
 <dependency>
   <groupId>io.github.kiyra-gjx</groupId>
   <artifactId>spring-ai-structured-output-guard-starter</artifactId>
-  <version>0.1.0-beta.1</version>
+  <version>0.1.0</version>
 </dependency>
 ```
 
@@ -241,14 +239,15 @@ curl "http://localhost:8088/demo/movie-review?movie=Interstellar"
 
 当前发布线基于 Spring AI `2.0.0-M1`。等 API 形态稳定后，再切到更新的稳定版会更合适。
 
-## 发布计划
+## 发布状态
 
-当前 `0.1.0` 剩余的发布工作主要是：
+`0.1.0` 已经发布。
 
-1. 最终确认公开 API 的命名和包结构
-2. 把安装示例里的 `0.1.0-beta.1` 切换成 `0.1.0`
-3. 发布 `0.1.0`
-4. 在 `0.2.x` 增加指标和扩展点
+接下来的工作重点是：
+
+1. 在 `0.1.x` 里保持公开 API 稳定
+2. 跟进后续 Spring AI 版本兼容性
+3. 在 `0.2.x` 增加指标和扩展点
 
 详细记录见 [CHANGELOG.md](./CHANGELOG.md)。
 

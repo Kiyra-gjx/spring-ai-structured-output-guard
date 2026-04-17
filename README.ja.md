@@ -102,17 +102,15 @@ return outputGuard.call(
 現在の公開バージョン:
 
 ```text
-0.1.0-beta.1
+0.1.0
 ```
-
-安定版 `0.1.0` は現在準備中です。
 
 依存座標:
 
 ### Gradle
 
 ```groovy
-implementation "io.github.kiyra-gjx:spring-ai-structured-output-guard-starter:0.1.0-beta.1"
+implementation "io.github.kiyra-gjx:spring-ai-structured-output-guard-starter:0.1.0"
 ```
 
 ### Maven
@@ -121,7 +119,7 @@ implementation "io.github.kiyra-gjx:spring-ai-structured-output-guard-starter:0.
 <dependency>
   <groupId>io.github.kiyra-gjx</groupId>
   <artifactId>spring-ai-structured-output-guard-starter</artifactId>
-  <version>0.1.0-beta.1</version>
+  <version>0.1.0</version>
 </dependency>
 ```
 
@@ -197,12 +195,13 @@ Windows PowerShell では `curl` の代わりに `curl.exe` または `Invoke-Re
 
 ## リリース状況
 
-安定版 `0.1.0` に向けて残っている主な作業は次のとおりです。
+`0.1.0` は公開済みです。
 
-1. 公開 API 名とパッケージ構成の最終確認
-2. インストール例の `0.1.0-beta.1` を `0.1.0` に更新
-3. `0.1.0` を公開
-4. `0.2.x` でメトリクスや拡張ポイントを追加
+この後の主な作業は次のとおりです。
+
+1. `0.1.x` の間は公開 API を安定させる
+2. 今後の Spring AI バージョンとの互換性を追う
+3. `0.2.x` でメトリクスや拡張ポイントを追加
 
 ## ロードマップ
 

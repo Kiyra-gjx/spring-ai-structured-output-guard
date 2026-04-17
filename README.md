@@ -111,17 +111,15 @@ The starter is published on Maven Central.
 Current published version:
 
 ```text
-0.1.0-beta.1
+0.1.0
 ```
-
-A stable `0.1.0` release is currently being prepared.
 
 Coordinates:
 
 ### Gradle
 
 ```groovy
-implementation "io.github.kiyra-gjx:spring-ai-structured-output-guard-starter:0.1.0-beta.1"
+implementation "io.github.kiyra-gjx:spring-ai-structured-output-guard-starter:0.1.0"
 ```
 
 ### Maven
@@ -130,7 +128,7 @@ implementation "io.github.kiyra-gjx:spring-ai-structured-output-guard-starter:0.
 <dependency>
   <groupId>io.github.kiyra-gjx</groupId>
   <artifactId>spring-ai-structured-output-guard-starter</artifactId>
-  <version>0.1.0-beta.1</version>
+  <version>0.1.0</version>
 </dependency>
 ```
 
@@ -245,14 +243,15 @@ The project is currently built and tested against:
 
 The current release line targets Spring AI `2.0.0-M1`. Moving to a later stable Spring AI line is still a reasonable follow-up once the API surface settles.
 
-## Release Plan
+## Release Status
 
-Stable `0.1.0` is in progress. The remaining release work is:
+`0.1.0` is now published.
 
-1. finalize the public API names and package layout
-2. switch installation examples from `0.1.0-beta.1` to `0.1.0`
-3. publish `0.1.0`
-4. add metrics and extension points in `0.2.x`
+The current follow-up work is:
+
+1. keep the public API surface stable across `0.1.x`
+2. track compatibility with later Spring AI lines
+3. add metrics and extension points in `0.2.x`
 
 See [CHANGELOG.md](./CHANGELOG.md) for release notes.
 
