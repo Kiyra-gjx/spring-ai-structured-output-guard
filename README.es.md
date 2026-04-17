@@ -1,121 +1,35 @@
-# Spring AI Structured Output Guard
+# Spring AI Structured Output Guard 🛡️
 
 [English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja.md) | [Español](./README.es.md)
 
 [![CI](https://github.com/Kiyra-gjx/spring-ai-structured-output-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/Kiyra-gjx/spring-ai-structured-output-guard/actions/workflows/ci.yml)
 [![Java 21](https://img.shields.io/badge/Java-21-437291?logo=openjdk)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.1-6DB33F?logo=springboot)](https://spring.io/projects/spring-boot)
-[![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0.0--M1-6DB33F)](https://spring.io/projects/spring-ai)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.kiyra-gjx/spring-ai-structured-output-guard-starter?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.kiyra-gjx/spring-ai-structured-output-guard-starter)
 [![License: Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](./LICENSE)
 
-Una pequeña capa de protección para las llamadas de salida estructurada de Spring AI.
+**No dejes que una respuesta mal formada tumbe toda tu salida estructurada.**
 
-`spring-ai-structured-output-guard` añade una capa pequeña de protección alrededor del flujo de salida estructurada de Spring AI. Reintenta solo cuando el fallo parece un problema de parseo y aplica una limpieza ligera de JSON antes de fallar definitivamente.
+Cuando usas Spring AI con `BeanOutputConverter` en producción, el modelo puede seguir devolviendo de vez en cuando JSON envuelto en Markdown, JSON con comas finales o JSON mezclado con texto explicativo. En lugar de repetir limpieza, reintentos y envoltorio de excepciones en el código de negocio, conviene bajar ese trabajo a una capa guard.
 
-La integración externa ya fue verificada con un proyecto Maven independiente usando las coordenadas publicadas en Maven Central y una API compatible con OpenAI Chat Completions.
+## 🚀 Qué resuelve
 
-## Por qué existe
+Cuando la salida del modelo es "casi JSON válido", el guard primero intenta una reparación local y luego decide si tiene sentido un reintento dirigido:
 
-Spring AI ya ofrece `BeanOutputConverter`, y funciona bien cuando el modelo devuelve JSON válido.
+- Code fences
+  Elimina Markdown code fences antes del parseo.
+- Ruido alrededor del payload
+  Extrae el primer JSON object / array desde texto explicativo.
+- Errores leves de sintaxis
+  Repara comas finales, smart quotes y caracteres de control dentro de cadenas JSON.
+- Fallos de parseo
+  Reintenta solo cuando el error restante sigue pareciendo un problema de parseo de salida estructurada.
 
-Esta librería apunta a otro caso: respuestas que están cerca de ser JSON, pero no lo suficiente. Los problemas más comunes son:
+La comparación completa y la matriz de ejemplos malformed JSON están en [docs/adoption-notes.md](./docs/adoption-notes.md).
 
-- JSON envuelto en Markdown code fences
-- comas finales antes de `}` o `]`
-- texto explicativo antes o después del cuerpo JSON
-- saltos de línea en bruto y caracteres de control dentro de cadenas JSON
-- fallos de parseo que en realidad solo necesitan un reintento dirigido, no un flujo completo de recuperación
+## 🛠️ Inicio rápido
 
-Este tipo de respuesta suele terminar en código repetido de parseo, reintentos y manejo de errores dentro de la aplicación.
-
-### Respuestas rotas típicas
-
-En producción, es común recibir respuestas como:
-
-````text
-```json
-{
-  "name": "Alice",
-  "skills": ["Java", "Spring",],
-}
-```
-````
-
-o:
-
-```text
-Here is the result you asked for:
-{"name":"Alice","summary":"line1
-line2"}
-```
-
-## Qué hace
-
-- reintentos solo cuando el error parece ser de parseo estructurado
-- reparación ligera de JSON para problemas comunes y de bajo riesgo
-- extracción del cuerpo JSON real desde respuestas con ruido
-- limpieza de comas finales y normalización de comillas tipográficas
-- escape de caracteres de control dentro de cadenas JSON
-- código de llamada más pequeño y tipado
-- un Spring Boot Starter listo para integrarse en proyectos con Spring AI
-
-## Ejemplo rápido
-
-**Sin el guard**
-
-```java
-BeanOutputConverter<MovieReview> converter = new BeanOutputConverter<>(MovieReview.class);
-
-try {
-    String raw = chatClient.prompt()
-        .system(systemPrompt + "\n" + converter.getFormat())
-        .user(userPrompt)
-        .call()
-        .content();
-    return converter.convert(raw);
-} catch (Exception e) {
-    // retry?
-    // repair json?
-    // log?
-    // wrap exception?
-    throw e;
-}
-```
-
-**Con el guard**
-
-```java
-return outputGuard.call(
-    chatClient,
-    systemPrompt,
-    userPrompt,
-    MovieReview.class,
-    StructuredOutputCallOptions.builder()
-        .logContext("movie-review")
-        .failureMessage("Failed to parse movie review")
-        .build()
-);
-```
-
-## Instalación
-
-Este Starter ya está publicado en Maven Central.
-
-Versión publicada actualmente:
-
-```text
-0.1.0
-```
-
-Coordenadas:
-
-### Gradle
-
-```groovy
-implementation "io.github.kiyra-gjx:spring-ai-structured-output-guard-starter:0.1.0"
-```
-
-### Maven
+### 1. Añade la dependencia
 
 ```xml
 <dependency>
@@ -125,22 +39,52 @@ implementation "io.github.kiyra-gjx:spring-ai-structured-output-guard-starter:0.
 </dependency>
 ```
 
-## Inicio rápido
+### 2. Úsalo como compañero de `ChatClient`
+
+El guard envuelve toda la cadena "llamar al modelo -> parsear -> reparar si hace falta -> reintentar si hace falta", así que no necesitas gestionar a mano `converter.convert()` ni clasificar excepciones en cada servicio.
 
 ```java
-return outputGuard.call(
-    chatClient,
-    systemPrompt,
-    userPrompt,
-    MovieReview.class,
-    StructuredOutputCallOptions.builder()
-        .logContext("movie-review")
-        .failureMessage("Failed to parse movie review")
-        .build()
-);
+@Service
+public class ResumeService {
+
+    private final ChatClient chatClient;
+    private final SpringAiStructuredOutputGuard outputGuard;
+
+    public ResumeService(ChatClient.Builder chatClientBuilder,
+                         SpringAiStructuredOutputGuard outputGuard) {
+        this.chatClient = chatClientBuilder.build();
+        this.outputGuard = outputGuard;
+    }
+
+    public ResumeSummary summarize(String resumeText) {
+        return outputGuard.call(
+            chatClient,
+            "You are a recruiting assistant.",
+            "Resume content:\n" + resumeText,
+            ResumeSummary.class,
+            StructuredOutputCallOptions.builder()
+                .logContext("resume-task")
+                .failureMessage("Failed to parse resume summary")
+                .build()
+        );
+    }
+}
 ```
 
-## Configuración
+## ⚖️ Cómo elegir
+
+| Opción | Cuándo encaja |
+|---|---|
+| Native structured output | Tu proveedor lo soporta oficialmente y quieres apoyarte primero en eso |
+| `BeanOutputConverter` puro | El modelo suele devolver JSON válido y no necesitas una capa de recuperación |
+| `StructuredOutputValidationAdvisor` | Necesitas validación por schema y reintentos, pero la limpieza de JSON no es el problema central |
+| Spring AI Guard | El problema real son code fences, comas finales, texto envolvente o caracteres de control en JSON recuperable |
+
+Si solo quieres ver la comparación detallada, ve a [docs/adoption-notes.md](./docs/adoption-notes.md).
+
+## ⚙️ Configuración
+
+El prefijo de propiedades es `spring.ai.structured-output.guard`.
 
 ```yaml
 spring:
@@ -148,70 +92,65 @@ spring:
     structured-output:
       guard:
         max-attempts: 2
-        include-last-error-in-retry-prompt: true
         enable-repair: true
+        include-last-error-in-retry-prompt: true
         max-error-message-length: 200
 ```
 
-## Estrategia de reparación actual
+| Propiedad | Valor por defecto | Descripción |
+|---|---:|---|
+| `spring.ai.structured-output.guard.max-attempts` | `2` | Número total de intentos, incluyendo la primera llamada |
+| `spring.ai.structured-output.guard.enable-repair` | `true` | Activa la reparación ligera de JSON antes del reintento |
+| `spring.ai.structured-output.guard.include-last-error-in-retry-prompt` | `true` | Añade el error resumido de parseo al prompt de reintento |
+| `spring.ai.structured-output.guard.max-error-message-length` | `200` | Limita la longitud del error incluido en el prompt de reintento |
+
+## 🔧 Estrategia de reparación
+
+La capa de reparación es conservadora por diseño. Solo toca ruido de formato con bajo riesgo de normalización:
 
 - elimina UTF-8 BOM
 - elimina Markdown code fences
-- extrae el primer objeto o array JSON
-- normaliza comillas inteligentes
+- extrae el primer JSON object / array
+- normaliza smart quotes
 - elimina comas finales antes de `}` o `]`
 - escapa `\n`, `\r`, `\t` y otros caracteres de control dentro de cadenas JSON
 
-## Aplicación de ejemplo
+No intenta:
 
-El módulo `example` expone:
+- adivinar llaves o corchetes faltantes
+- reescribir pseudo JSON con comillas simples a JSON estándar
+- eliminar comentarios JSON
+- corregir payloads que ya son semánticamente erróneos
 
-```text
-GET /demo/movie-review?movie=Interstellar
-```
+Esos casos pasan a reintento dirigido o terminan en `StructuredOutputException`.
 
-Ejecución:
+## 🧱 Estructura del proyecto
 
-```bash
-./gradlew :example:bootRun
-```
+- `core`
+  Reintentos, reparación y orquestación de parseo sin dependencia del contenedor Spring.
+- `starter`
+  Auto-configuración Spring Boot y punto de entrada listo para usar.
+- `example`
+  Demo ejecutable.
 
-En Windows PowerShell conviene usar `curl.exe` o `Invoke-RestMethod` en lugar del alias `curl`.
+## 📌 Compatibilidad
 
-## Desarrollo local
+Base realmente validada en este repositorio:
 
-```bash
-./gradlew test
-./gradlew :example:bootRun
-```
-
-## Compatibilidad
-
-El proyecto se compila y se prueba actualmente con:
-
+- Java `21`
 - Spring Boot `4.0.1`
 - Spring AI `2.0.0-M1`
-- Java `21`
 
-La línea actual de publicación sigue usando Spring AI `2.0.0-M1`. Cuando la API quede más asentada, será razonable moverla a una línea estable más reciente.
+Líneas públicas actuales de Spring AI, a fecha del 17 de abril de 2026:
 
-## Estado de la release
+- Stable `1.0.5` y `1.1.4`
+- Preview `2.0.0-M4`
 
-`0.1.0` ya está publicado.
+`0.1.0` significa que el proyecto fue verificado sobre esa base. No debe leerse como una promesa general de compatibilidad con todas las líneas actuales de Spring AI.
 
-El trabajo siguiente se centra en:
+## 🤝 Contribuciones
 
-1. mantener estable la API pública durante la línea `0.1.x`
-2. seguir la compatibilidad con futuras versiones de Spring AI
-3. añadir métricas y puntos de extensión en `0.2.x`
+Se aceptan issues y pull requests.
 
-## Roadmap
-
-- estrategias de reparación personalizadas
-- métricas con Micrometer
-- soporte para agregación de streaming
-- más pruebas de integración
-
-## Contribuciones
-
-Se aceptan issues y pull requests. Consulta [CONTRIBUTING.md](./CONTRIBUTING.md).
+- Notas de release: [CHANGELOG.md](./CHANGELOG.md)
+- Guía de contribución: [CONTRIBUTING.md](./CONTRIBUTING.md)
