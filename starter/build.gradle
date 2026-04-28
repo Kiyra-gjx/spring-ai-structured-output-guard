@@ -5,8 +5,9 @@ dependencies {
     api 'org.springframework.ai:spring-ai-model'
     implementation 'org.springframework.ai:spring-ai-commons'
     implementation 'org.springframework.boot:spring-boot-autoconfigure'
+    compileOnly 'io.micrometer:micrometer-core'
 
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+    testImplementation 'io.micrometer:micrometer-core'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
-
