@@ -95,6 +95,8 @@ spring:
         enable-repair: true
         include-last-error-in-retry-prompt: true
         max-error-message-length: 200
+        metrics:
+          enabled: true
 ```
 
 | Property | Default | Description |
@@ -103,6 +105,7 @@ spring:
 | `spring.ai.structured-output.guard.enable-repair` | `true` | Enables lightweight JSON repair before retrying |
 | `spring.ai.structured-output.guard.include-last-error-in-retry-prompt` | `true` | Adds the sanitized parse error to retry instructions |
 | `spring.ai.structured-output.guard.max-error-message-length` | `200` | Truncates parse errors included in retry prompts |
+| `spring.ai.structured-output.guard.metrics.enabled` | `true` | Enables the Micrometer listener when a `MeterRegistry` bean is present |
 
 ## 🔧 Repair Strategy
 
@@ -168,6 +171,24 @@ class StructuredOutputRepairConfig {
 ```
 
 Each step receives the previous step's output. If a custom step throws an exception or returns `null`, `JsonRepairer` fails fast with an `IllegalStateException` instead of silently skipping the bad step.
+
+## Observability
+
+If your application already exposes a Micrometer `MeterRegistry`, the starter automatically publishes structured output counters. This does not require a specific monitoring backend. Any Micrometer registry supported by Spring Boot can collect them.
+
+Set `spring.ai.structured-output.guard.metrics.enabled=false` if you want to keep the guard behavior but disable the built-in Micrometer listener.
+
+| Metric | Tags | Meaning |
+|---|---|---|
+| `spring.ai.structured.output.guard.calls` | `result=success|repaired_success|failure` | Total completed guard calls grouped by final outcome |
+| `spring.ai.structured.output.guard.repair.attempts` | none | Number of local repair passes entered after parse failures |
+| `spring.ai.structured.output.guard.repair.success` | none | Number of times repaired content parsed successfully |
+| `spring.ai.structured.output.guard.retries` | `error_type=structured_output|other` | Number of retry attempts scheduled |
+| `spring.ai.structured.output.guard.failures` | `error_type=structured_output|other` | Number of final failures after guard processing |
+
+`repair.attempts` counts repair passes, not just top-level requests. If one request fails parsing twice and enters repair twice before the final result, the counter increases by `2`.
+
+If you are integrating `core` directly instead of the Spring starter, you can pass your own `StructuredOutputExecutionListener` to `StructuredOutputExecutor` and forward the same lifecycle events into your observability stack.
 
 ## 🧱 Project Layout
 

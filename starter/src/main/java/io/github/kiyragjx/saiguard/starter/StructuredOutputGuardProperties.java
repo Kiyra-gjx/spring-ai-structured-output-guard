@@ -9,6 +9,7 @@ public class StructuredOutputGuardProperties {
     private boolean includeLastErrorInRetryPrompt = true;
     private boolean enableRepair = true;
     private int maxErrorMessageLength = 200;
+    private final Metrics metrics = new Metrics();
 
     public int getMaxAttempts() {
         return maxAttempts;
@@ -41,5 +42,21 @@ public class StructuredOutputGuardProperties {
     public void setMaxErrorMessageLength(int maxErrorMessageLength) {
         this.maxErrorMessageLength = maxErrorMessageLength;
     }
-}
 
+    public Metrics getMetrics() {
+        return metrics;
+    }
+
+    public static class Metrics {
+
+        private boolean enabled = true;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+    }
+}
