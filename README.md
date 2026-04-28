@@ -3,8 +3,8 @@
 [English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja.md) | [Español](./README.es.md)
 
 [![CI](https://github.com/Kiyra-gjx/spring-ai-structured-output-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/Kiyra-gjx/spring-ai-structured-output-guard/actions/workflows/ci.yml)
-[![Java 21](https://img.shields.io/badge/Java-21-437291?logo=openjdk)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.1-6DB33F?logo=springboot)](https://spring.io/projects/spring-boot)
+[![Java 21](https://img.shields.io/badge/Java-21-437291?logo=openjdk)](https://openjdk.org/)
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.kiyra-gjx/spring-ai-structured-output-guard-starter?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.kiyra-gjx/spring-ai-structured-output-guard-starter)
 [![License: Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](./LICENSE)
 
@@ -201,18 +201,21 @@ If you are integrating `core` directly instead of the Spring starter, you can pa
 
 ## 📌 Compatibility
 
-Current tested baseline for this repository:
+Current verified combinations for this repository, last validated on April 28, 2026:
 
-- Java `21`
-- Spring Boot `4.0.1`
-- Spring AI `2.0.0-M1`
+| Spring Boot | Spring AI | Status | Validation path |
+|---|---|---|---|
+| `4.0.1` | `2.0.0-M5` | Verified | Default `./gradlew test` path covering `core`, `starter`, and `example` |
+| `3.5.11` | `1.1.4` | Verified | Compatibility matrix run with `-PspringBootVersion=3.5.11 -PspringAiVersion=1.1.4` |
 
-Current public Spring AI release lines, as of April 17, 2026:
+Current public Spring AI release lines, as of April 28, 2026:
 
 - Stable `1.0.5` and `1.1.4`
-- Preview `2.0.0-M4`
+- Preview `2.0.0-M5`
 
-`0.1.0` means this project has been verified on the baseline above. It should not be read as a blanket compatibility claim for every current Spring AI line.
+The repository default build now targets `Spring Boot 4.0.1 + Spring AI 2.0.0-M5`.
+
+Other Spring AI lines are not currently covered by the CI compatibility matrix and should be treated as unverified until they are explicitly added and tested.
 
 ## 🤝 Contributing
 

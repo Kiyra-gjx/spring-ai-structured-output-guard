@@ -5,14 +5,16 @@ import java.nio.charset.StandardCharsets
 import java.util.Base64
 
 plugins {
-    alias(libs.plugins.spring.boot) apply false
-    alias(libs.plugins.spring.dependency.management) apply false
+    id 'org.springframework.boot' apply false
+    id 'io.spring.dependency-management' apply false
 }
 
 group = 'io.github.kiyra-gjx'
 version = findProperty('releaseVersion') ?: '0.1.0-SNAPSHOT'
 
 ext {
+    resolvedSpringBootVersion = findProperty('springBootVersion') ?: findProperty('defaultSpringBootVersion')
+    resolvedSpringAiVersion = findProperty('springAiVersion') ?: findProperty('defaultSpringAiVersion')
     repositoryOwner = 'Kiyra-gjx'
     repositoryName = rootProject.name
     repositoryUrl = "https://github.com/${repositoryOwner}/${repositoryName}"
@@ -52,8 +54,8 @@ subprojects {
 
     dependencyManagement {
         imports {
-            mavenBom "org.springframework.boot:spring-boot-dependencies:${libs.versions.spring.boot.get()}"
-            mavenBom "org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}"
+            mavenBom "org.springframework.boot:spring-boot-dependencies:${rootProject.ext.resolvedSpringBootVersion}"
+            mavenBom "org.springframework.ai:spring-ai-bom:${rootProject.ext.resolvedSpringAiVersion}"
         }
     }
 
@@ -72,6 +74,16 @@ subprojects {
     dependencies {
         testImplementation libs.junit.jupiter
         testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+}
+
+tasks.register('printCompatibilityVersions') {
+    group = 'help'
+    description = 'Prints the resolved Spring Boot and Spring AI versions for the current build.'
+
+    doLast {
+        println "Resolved Spring Boot version: ${rootProject.ext.resolvedSpringBootVersion}"
+        println "Resolved Spring AI version: ${rootProject.ext.resolvedSpringAiVersion}"
     }
 }
 

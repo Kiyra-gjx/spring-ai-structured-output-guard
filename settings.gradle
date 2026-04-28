@@ -1,6 +1,24 @@
+pluginManagement {
+    def defaults = new Properties()
+    file('gradle.properties').withInputStream { defaults.load(it) }
+
+    def springBootVersion = defaults.getProperty('defaultSpringBootVersion', '4.0.1')
+    def dependencyManagementPluginVersion = defaults.getProperty('dependencyManagementPluginVersion', '1.1.7')
+
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven { url 'https://repo.spring.io/milestone' }
+    }
+
+    plugins {
+        id 'org.springframework.boot' version "${springBootVersion}"
+        id 'io.spring.dependency-management' version "${dependencyManagementPluginVersion}"
+    }
+}
+
 rootProject.name = 'spring-ai-structured-output-guard'
 
 include 'core'
 include 'starter'
 include 'example'
-

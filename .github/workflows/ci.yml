@@ -8,8 +8,22 @@ on:
   pull_request:
 
 jobs:
-  build:
+  compatibility:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: preview
+            spring-boot-version: 4.0.1
+            spring-ai-version: 2.0.0-M5
+          - name: stable
+            spring-boot-version: 3.5.11
+            spring-ai-version: 1.1.4
+    name: >
+      compatibility (${{ matrix.name }}) -
+      Boot ${{ matrix.spring-boot-version }} /
+      AI ${{ matrix.spring-ai-version }}
 
     steps:
       - name: Checkout
@@ -27,5 +41,14 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
+      - name: Print resolved compatibility versions
+        run: >
+          ./gradlew printCompatibilityVersions
+          -PspringBootVersion=${{ matrix.spring-boot-version }}
+          -PspringAiVersion=${{ matrix.spring-ai-version }}
+
       - name: Run tests
-        run: ./gradlew test
+        run: >
+          ./gradlew test
+          -PspringBootVersion=${{ matrix.spring-boot-version }}
+          -PspringAiVersion=${{ matrix.spring-ai-version }}
