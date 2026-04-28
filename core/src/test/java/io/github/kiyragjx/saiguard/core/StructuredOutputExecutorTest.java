@@ -194,6 +194,47 @@ class StructuredOutputExecutorTest {
         assertEquals(List.of("repair-attempted:resume-task", "failure:resume-task:1:structured_output"), listener.events);
     }
 
+    @Test
+    void shouldKeepMainFlowWorkingWhenOneExecutionListenerFails() {
+        RecordingExecutionListener healthyListener = new RecordingExecutionListener();
+        CompositeStructuredOutputExecutionListener listener = new CompositeStructuredOutputExecutionListener(List.of(
+            new StructuredOutputExecutionListener() {
+                @Override
+                public void onRepairAttempted(String logContext) {
+                    throw new IllegalStateException("listener boom");
+                }
+            },
+            healthyListener
+        ));
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.defaults(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer(),
+            listener
+        );
+
+        String result = executor.execute(StructuredOutputExecution.<String>builder()
+            .systemPrompt("Return JSON")
+            .userPrompt("hi")
+            .logContext("movie-review")
+            .responder((systemPrompt, userPrompt) -> """
+                ```json
+                {"value":"ok",}
+                ```
+                """)
+            .parser(raw -> {
+                if (!raw.contains("\"value\":\"ok\"") || raw.contains(",}")) {
+                    throw new IllegalArgumentException("json parse error");
+                }
+                return raw;
+            })
+            .build());
+
+        assertEquals("{\"value\":\"ok\"}", result);
+        assertEquals(List.of("repair-attempted:movie-review", "repair-succeeded:movie-review", "success:movie-review:1:true"),
+            healthyListener.events);
+    }
+
     private static final class RecordingExecutionListener implements StructuredOutputExecutionListener {
 
         private final List<String> events = new ArrayList<>();
