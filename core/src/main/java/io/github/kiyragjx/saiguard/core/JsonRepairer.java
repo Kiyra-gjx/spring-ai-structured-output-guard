@@ -1,6 +1,32 @@
 package io.github.kiyragjx.saiguard.core;
 
+import java.util.List;
+import java.util.Objects;
+
 public class JsonRepairer {
+
+    private static final List<JsonRepairStep> DEFAULT_STEPS = List.of(
+        JsonRepairStep.named("stripCodeFence", JsonRepairer::stripCodeFence),
+        JsonRepairStep.named("extractJsonBody", JsonRepairer::extractJsonBody),
+        JsonRepairStep.named("normalizeQuotes", JsonRepairer::normalizeQuotes),
+        JsonRepairStep.named("removeTrailingCommas", JsonRepairer::removeTrailingCommas),
+        JsonRepairStep.named("escapeControlCharsInJsonStrings", JsonRepairer::escapeControlCharsInJsonStrings)
+    );
+
+    private final List<JsonRepairStep> steps;
+
+    public JsonRepairer() {
+        this(DEFAULT_STEPS);
+    }
+
+    public JsonRepairer(List<JsonRepairStep> steps) {
+        Objects.requireNonNull(steps, "steps cannot be null");
+        this.steps = List.copyOf(steps);
+    }
+
+    public static List<JsonRepairStep> defaultSteps() {
+        return DEFAULT_STEPS;
+    }
 
     public String repair(String rawContent) {
         if (rawContent == null || rawContent.isBlank()) {
@@ -8,19 +34,31 @@ public class JsonRepairer {
         }
 
         String candidate = stripBom(rawContent).trim();
-        candidate = stripCodeFence(candidate);
-        candidate = extractJsonBody(candidate);
-        candidate = normalizeQuotes(candidate);
-        candidate = removeTrailingCommas(candidate);
-        candidate = escapeControlCharsInJsonStrings(candidate);
+        for (JsonRepairStep step : steps) {
+            candidate = applyStep(step, candidate);
+        }
         return candidate;
     }
 
-    private String stripBom(String text) {
+    private String applyStep(JsonRepairStep step, String candidate) {
+        try {
+            String repaired = step.repair(candidate);
+            if (repaired == null) {
+                throw new IllegalStateException("Json repair step '" + step.name() + "' returned null");
+            }
+            return repaired;
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("Json repair step '" + step.name() + "' failed", e);
+        }
+    }
+
+    private static String stripBom(String text) {
         return text.startsWith("\uFEFF") ? text.substring(1) : text;
     }
 
-    private String stripCodeFence(String text) {
+    private static String stripCodeFence(String text) {
         if (!text.startsWith("```")) {
             return text;
         }
@@ -38,7 +76,7 @@ public class JsonRepairer {
         return text;
     }
 
-    private String extractJsonBody(String text) {
+    private static String extractJsonBody(String text) {
         int objectStart = text.indexOf('{');
         int objectEnd = text.lastIndexOf('}');
         if (objectStart >= 0 && objectEnd > objectStart) {
@@ -53,7 +91,7 @@ public class JsonRepairer {
         return text;
     }
 
-    private String normalizeQuotes(String text) {
+    private static String normalizeQuotes(String text) {
         return text
             .replace('\u201C', '"')
             .replace('\u201D', '"')
@@ -61,7 +99,7 @@ public class JsonRepairer {
             .replace('\u2019', '\'');
     }
 
-    private String removeTrailingCommas(String text) {
+    private static String removeTrailingCommas(String text) {
         StringBuilder out = new StringBuilder(text.length());
         boolean inString = false;
         boolean escaped = false;
@@ -105,7 +143,7 @@ public class JsonRepairer {
         return out.toString();
     }
 
-    private String escapeControlCharsInJsonStrings(String text) {
+    private static String escapeControlCharsInJsonStrings(String text) {
         StringBuilder out = new StringBuilder(text.length() + 16);
         boolean inString = false;
         boolean escaped = false;
@@ -159,4 +197,3 @@ public class JsonRepairer {
         return out.toString();
     }
 }
-
