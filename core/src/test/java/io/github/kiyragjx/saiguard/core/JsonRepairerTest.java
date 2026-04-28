@@ -2,7 +2,11 @@ package io.github.kiyragjx.saiguard.core;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class JsonRepairerTest {
 
@@ -71,5 +75,47 @@ class JsonRepairerTest {
         String raw = "{\"name\":\"guard\"";
 
         assertEquals(raw, repairer.repair(raw));
+    }
+
+    @Test
+    void shouldApplyCustomStepsAfterDefaultSteps() {
+        List<JsonRepairStep> steps = new ArrayList<>(JsonRepairer.defaultSteps());
+        steps.add(JsonRepairStep.named("mark-guard", text -> text.replace("\"guard\"", "\"[[guard]]\"")));
+        steps.add(JsonRepairStep.named("finalize-guard", text -> text.replace("[[guard]]", "patched")));
+
+        JsonRepairer customRepairer = new JsonRepairer(steps);
+        String raw = """
+            ```json
+            {"name":"guard",}
+            ```
+            """;
+
+        assertEquals("{\"name\":\"patched\"}", customRepairer.repair(raw));
+    }
+
+    @Test
+    void shouldFailFastWhenCustomStepReturnsNull() {
+        JsonRepairer customRepairer = new JsonRepairer(List.of(
+            JsonRepairStep.named("drop-everything", text -> null)
+        ));
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+            () -> customRepairer.repair("{\"name\":\"guard\"}"));
+
+        assertEquals("Json repair step 'drop-everything' returned null", error.getMessage());
+    }
+
+    @Test
+    void shouldFailFastWhenCustomStepThrows() {
+        JsonRepairer customRepairer = new JsonRepairer(List.of(
+            JsonRepairStep.named("explode", text -> {
+                throw new IllegalArgumentException("bad repair");
+            })
+        ));
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+            () -> customRepairer.repair("{\"name\":\"guard\"}"));
+
+        assertEquals("Json repair step 'explode' failed", error.getMessage());
     }
 }

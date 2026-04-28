@@ -124,6 +124,51 @@ It does not try to:
 
 Those cases fall through to targeted retry or ultimately raise `StructuredOutputException`.
 
+## Extending Repair
+
+If the default repair pass is close but not quite enough for your model or provider, you now have two extension paths:
+
+- Add one or more `JsonRepairStep` beans when you want to keep the built-in repair steps and append custom cleanup logic.
+- Provide your own `JsonRepairer` bean when you need to remove, reorder, or fully replace the default step chain.
+
+### Append custom repair steps
+
+Custom `JsonRepairStep` beans run after the built-in steps. In Spring applications they are applied in `@Order` / `Ordered` order.
+
+```java
+@Configuration
+class StructuredOutputRepairConfig {
+
+    @Bean
+    @Order(100)
+    JsonRepairStep normalizeAngleQuoteTokens() {
+        return JsonRepairStep.named("normalizeAngleQuoteTokens",
+            text -> text.replace("<<", "\""));
+    }
+}
+```
+
+### Replace or tune the full step chain
+
+If you need finer control, define a `JsonRepairer` bean yourself and build the exact chain you want. `JsonRepairer.defaultSteps()` exposes the current built-in sequence so you can start from the defaults and adjust it.
+
+```java
+@Configuration
+class StructuredOutputRepairConfig {
+
+    @Bean
+    JsonRepairer jsonRepairer() {
+        List<JsonRepairStep> steps = new ArrayList<>(JsonRepairer.defaultSteps());
+        steps.removeIf(step -> step.name().equals("normalizeQuotes"));
+        steps.add(JsonRepairStep.named("normalizeAngleQuoteTokens",
+            text -> text.replace("<<", "\"")));
+        return new JsonRepairer(steps);
+    }
+}
+```
+
+Each step receives the previous step's output. If a custom step throws an exception or returns `null`, `JsonRepairer` fails fast with an `IllegalStateException` instead of silently skipping the bad step.
+
 ## 🧱 Project Layout
 
 - `core`
