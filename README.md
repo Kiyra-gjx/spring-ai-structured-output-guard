@@ -82,6 +82,18 @@ public class ResumeService {
 
 If you mainly want the detailed comparison, go straight to [docs/adoption-notes.md](./docs/adoption-notes.md).
 
+## 🚫 When Not To Use This Guard
+
+Use a different layer when the problem is not low-risk malformed JSON recovery:
+
+- Do not use it as a replacement for provider-native structured output or JSON schema mode. Prefer native structured output when your provider supports it and it fits your contract.
+- Do not use it as a replacement for schema validation or business-field validation. Invalid shapes, missing required domain values, or semantically wrong payloads should still be handled by validation close to your data model.
+- Do not use it to repair semantically wrong responses, such as a payload that is valid JSON but answers the wrong question.
+- Do not rely on it for aggressive JSON guessing, such as inventing missing brackets, rewriting single-quoted pseudo JSON, or stripping JSON comments.
+- Do not use it to save or propagate complete model output by default. The guard keeps failure context lightweight; raw or repaired payload snippets should only be exposed through explicit, tightly bounded options.
+
+It is a good fit when you still use prompt-based structured output and the recurring failures are formatting noise such as Markdown code fences, wrapper prose, trailing commas, or raw control characters. It is also useful when you want retry, repair, and exception wrapping to live in the guard layer instead of being repeated across service code.
+
 ## ⚙️ Configuration
 
 The property prefix is `spring.ai.structured-output.guard`.
