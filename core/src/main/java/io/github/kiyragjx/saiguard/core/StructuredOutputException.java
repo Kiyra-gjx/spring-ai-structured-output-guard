@@ -36,4 +36,16 @@ public class StructuredOutputException extends RuntimeException {
     public String errorType() {
         return failureContext.errorType();
     }
+
+    StructuredOutputException withFailureContext(StructuredOutputFailureContext failureContext) {
+        if (!this.failureContext.isEmpty() || failureContext == null || failureContext.equals(this.failureContext)) {
+            return this;
+        }
+        StructuredOutputException enriched = new StructuredOutputException(getMessage(), getCause(), failureContext);
+        enriched.setStackTrace(getStackTrace());
+        for (Throwable suppressed : getSuppressed()) {
+            enriched.addSuppressed(suppressed);
+        }
+        return enriched;
+    }
 }

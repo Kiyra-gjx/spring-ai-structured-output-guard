@@ -8,6 +8,12 @@ public record StructuredOutputFailureContext(
 ) {
 
     public static final String ERROR_TYPE_UNKNOWN = "unknown";
+    private static final StructuredOutputFailureContext EMPTY = new StructuredOutputFailureContext(
+        0,
+        false,
+        false,
+        ERROR_TYPE_UNKNOWN
+    );
 
     public StructuredOutputFailureContext {
         attemptCount = Math.max(0, attemptCount);
@@ -15,6 +21,10 @@ public record StructuredOutputFailureContext(
     }
 
     public static StructuredOutputFailureContext empty() {
-        return new StructuredOutputFailureContext(0, false, false, ERROR_TYPE_UNKNOWN);
+        return EMPTY;
+    }
+
+    public boolean isEmpty() {
+        return equals(EMPTY);
     }
 }

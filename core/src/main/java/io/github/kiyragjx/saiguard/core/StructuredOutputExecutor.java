@@ -68,8 +68,10 @@ public class StructuredOutputExecutor {
                 executionListener.onSuccess(safeLogContext(execution.logContext()), attempt, parseResult.repaired());
                 return parseResult.value();
             } catch (StructuredOutputException e) {
-                executionListener.onFailure(safeLogContext(execution.logContext()), attempt, errorType(e));
-                throw e;
+                String errorType = errorType(e);
+                failureTracker.recordAttempt(attempt, errorType);
+                executionListener.onFailure(safeLogContext(execution.logContext()), attempt, errorType);
+                throw e.withFailureContext(failureTracker.toContext());
             } catch (Exception e) {
                 failureTracker.recordAttempt(attempt, errorType(e));
                 if (!shouldRetry(effectiveOptions, e, attempt)) {
