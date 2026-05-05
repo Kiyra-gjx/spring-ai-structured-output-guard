@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class StructuredOutputExecutorTest {
@@ -58,6 +59,88 @@ class StructuredOutputExecutorTest {
 
         assertEquals("{\"value\":\"ok\"}", result);
         assertEquals(2, attempts.get());
+    }
+
+    @Test
+    void shouldUseCallOptionsWithoutMutatingDefaultOptions() {
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder().maxAttempts(1).build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer()
+        );
+        AtomicInteger attempts = new AtomicInteger();
+
+        String result = executor.execute(StructuredOutputExecution.<String>builder()
+            .systemPrompt("Return JSON")
+            .userPrompt("hi")
+            .responder((systemPrompt, userPrompt) -> {
+                if (attempts.incrementAndGet() == 1) {
+                    return "{\"value\":\"ok\"";
+                }
+                return "{\"value\":\"ok\"}";
+            })
+            .parser(raw -> {
+                if (!raw.endsWith("}")) {
+                    throw new IllegalArgumentException("unexpected end-of-input");
+                }
+                return raw;
+            })
+            .build(), StructuredOutputOptions.builder()
+            .maxAttempts(2)
+            .build());
+
+        assertEquals("{\"value\":\"ok\"}", result);
+        assertEquals(2, attempts.get());
+        assertEquals(1, executor.defaultOptions().maxAttempts());
+    }
+
+    @Test
+    void shouldDisableRepairForOneExecutionOnly() {
+        StructuredOutputExecutor executor = new StructuredOutputExecutor();
+        AtomicInteger attempts = new AtomicInteger();
+
+        assertThrows(StructuredOutputException.class, () -> executor.execute(StructuredOutputExecution.<String>builder()
+            .systemPrompt("Return JSON")
+            .userPrompt("hi")
+            .responder((systemPrompt, userPrompt) -> {
+                attempts.incrementAndGet();
+                return """
+                    ```json
+                    {"value":"ok",}
+                    ```
+                    """;
+            })
+            .parser(raw -> {
+                if (!raw.contains("\"value\":\"ok\"") || raw.contains(",}")) {
+                    throw new IllegalArgumentException("json parse error");
+                }
+                return raw;
+            })
+            .build(), StructuredOutputOptions.builder()
+            .maxAttempts(1)
+            .enableRepair(false)
+            .build()));
+
+        assertEquals(1, attempts.get());
+
+        String result = executor.execute(StructuredOutputExecution.<String>builder()
+            .systemPrompt("Return JSON")
+            .userPrompt("hi")
+            .responder((systemPrompt, userPrompt) -> """
+                ```json
+                {"value":"ok",}
+                ```
+                """)
+            .parser(raw -> {
+                if (!raw.contains("\"value\":\"ok\"") || raw.contains(",}")) {
+                    throw new IllegalArgumentException("json parse error");
+                }
+                return raw;
+            })
+            .build());
+
+        assertEquals("{\"value\":\"ok\"}", result);
+        assertTrue(executor.defaultOptions().enableRepair());
     }
 
     @Test

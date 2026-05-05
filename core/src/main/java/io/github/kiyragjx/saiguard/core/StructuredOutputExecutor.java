@@ -38,50 +38,59 @@ public class StructuredOutputExecutor {
         this.executionListener = executionListener == null ? NO_OP_LISTENER : executionListener;
     }
 
+    public StructuredOutputOptions defaultOptions() {
+        return options;
+    }
+
     public <T> T execute(StructuredOutputExecution<T> execution) {
+        return execute(execution, options);
+    }
+
+    public <T> T execute(StructuredOutputExecution<T> execution, StructuredOutputOptions callOptions) {
+        StructuredOutputOptions effectiveOptions = callOptions == null ? options : callOptions;
         Exception lastError = null;
 
-        for (int attempt = 1; attempt <= options.maxAttempts(); attempt++) {
+        for (int attempt = 1; attempt <= effectiveOptions.maxAttempts(); attempt++) {
             String attemptSystemPrompt = attempt == 1
                 ? execution.systemPrompt()
-                : buildRetrySystemPrompt(execution.systemPrompt(), lastError);
+                : buildRetrySystemPrompt(effectiveOptions, execution.systemPrompt(), lastError);
 
             try {
                 String rawContent = execution.responder().respond(attemptSystemPrompt, execution.userPrompt());
-                ParseResult<T> parseResult = parseWithRepair(execution.parser(), rawContent, execution.logContext());
+                ParseResult<T> parseResult = parseWithRepair(effectiveOptions, execution.parser(), rawContent, execution.logContext());
                 executionListener.onSuccess(safeLogContext(execution.logContext()), attempt, parseResult.repaired());
                 return parseResult.value();
             } catch (StructuredOutputException e) {
                 executionListener.onFailure(safeLogContext(execution.logContext()), attempt, errorType(e));
                 throw e;
             } catch (Exception e) {
-                if (!shouldRetry(e, attempt)) {
+                if (!shouldRetry(effectiveOptions, e, attempt)) {
                     executionListener.onFailure(safeLogContext(execution.logContext()), attempt, errorType(e));
                     throw new StructuredOutputException(buildFailureMessage(execution), e);
                 }
                 lastError = e;
                 executionListener.onRetry(safeLogContext(execution.logContext()), attempt + 1, errorType(e));
                 log.warn("{} structured output parsing failed, retrying. attempt={}, error={}",
-                    safeLogContext(execution.logContext()), attempt, sanitizeErrorMessage(e.getMessage()));
+                    safeLogContext(execution.logContext()), attempt, sanitizeErrorMessage(effectiveOptions, e.getMessage()));
             }
         }
 
-        executionListener.onFailure(safeLogContext(execution.logContext()), options.maxAttempts(), errorType(lastError));
+        executionListener.onFailure(safeLogContext(execution.logContext()), effectiveOptions.maxAttempts(), errorType(lastError));
         throw new StructuredOutputException(buildFailureMessage(execution), lastError);
     }
 
-    private boolean shouldRetry(Exception error, int attempt) {
+    private boolean shouldRetry(StructuredOutputOptions options, Exception error, int attempt) {
         return attempt < options.maxAttempts() && errorClassifier.isStructuredOutputError(error);
     }
 
-    private String buildRetrySystemPrompt(String systemPrompt, Exception lastError) {
+    private String buildRetrySystemPrompt(StructuredOutputOptions options, String systemPrompt, Exception lastError) {
         StringBuilder prompt = new StringBuilder(systemPrompt)
             .append("\n\n")
             .append(options.strictJsonInstruction())
             .append("\nThe previous response could not be parsed as valid JSON. Return only valid JSON.");
 
         if (options.includeLastErrorInRetryPrompt() && lastError != null && lastError.getMessage() != null) {
-            prompt.append("\nPrevious parse error: ").append(sanitizeErrorMessage(lastError.getMessage()));
+            prompt.append("\nPrevious parse error: ").append(sanitizeErrorMessage(options, lastError.getMessage()));
         }
         return prompt.toString();
     }
@@ -96,7 +105,7 @@ public class StructuredOutputExecutor {
         return "Structured output parsing failed";
     }
 
-    private String sanitizeErrorMessage(String message) {
+    private String sanitizeErrorMessage(StructuredOutputOptions options, String message) {
         if (message == null || message.isBlank()) {
             return "unknown";
         }
@@ -115,7 +124,12 @@ public class StructuredOutputExecutor {
         return errorClassifier.isStructuredOutputError(error) ? "structured_output" : "other";
     }
 
-    private <T> ParseResult<T> parseWithRepair(StructuredOutputParser<T> parser, String rawContent, String logContext) throws Exception {
+    private <T> ParseResult<T> parseWithRepair(
+        StructuredOutputOptions options,
+        StructuredOutputParser<T> parser,
+        String rawContent,
+        String logContext
+    ) throws Exception {
         try {
             return new ParseResult<>(parser.parse(rawContent), false);
         } catch (Exception originalError) {

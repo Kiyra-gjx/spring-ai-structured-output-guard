@@ -107,6 +107,27 @@ spring:
 | `spring.ai.structured-output.guard.max-error-message-length` | `200` | 限制重试提示中错误消息的最大长度 |
 | `spring.ai.structured-output.guard.metrics.enabled` | `true` | 当存在 `MeterRegistry` Bean 时启用 Micrometer 监听器 |
 
+### 单次调用覆盖
+
+全局配置仍然是推荐主路径。只有当某个调用需要不同的重试或 repair 策略时，才在 `StructuredOutputCallOptions` 上设置需要覆盖的字段；未设置的字段继续使用 starter 全局配置，底层仍保留 core 默认值兜底。
+
+```java
+ResumeSummary summary = outputGuard.call(
+    chatClient,
+    "You are a recruiting assistant.",
+    "Resume content:\n" + resumeText,
+    ResumeSummary.class,
+    StructuredOutputCallOptions.builder()
+        .logContext("strict-resume-task")
+        .maxAttempts(1)
+        .enableRepair(false)
+        .includeLastErrorInRetryPrompt(false)
+        .build()
+);
+```
+
+覆盖优先级是：单次调用配置 > starter 全局配置 > core 默认值。它适合低延迟路径、必须 fail-fast 的调用，或者本地 JSON repair 比直接报错风险更高的提示。
+
 ## 🔧 修复策略
 
 guard 的修复层故意保持保守，只处理低风险、格式性的脏数据：

@@ -70,6 +70,67 @@ class StructuredOutputGuardAutoConfigurationTest {
     }
 
     @Test
+    void shouldMergeCallOptionsOverExecutorDefaults() {
+        RecordingStructuredOutputExecutor executor = new RecordingStructuredOutputExecutor(
+            StructuredOutputOptions.builder()
+                .maxAttempts(3)
+                .includeLastErrorInRetryPrompt(false)
+                .enableRepair(true)
+                .maxErrorMessageLength(512)
+                .strictJsonInstruction("Use strict global JSON.")
+                .build()
+        );
+        SpringAiStructuredOutputGuard guard = new SpringAiStructuredOutputGuard(executor);
+        TestOutput expected = new TestOutput("ok");
+        executor.result = expected;
+
+        TestOutput result = guard.call(null, "Return a test output.", "hi", TestOutput.class,
+            StructuredOutputCallOptions.builder()
+                .logContext("single-call")
+                .failureMessage("single failure")
+                .maxAttempts(1)
+                .enableRepair(false)
+                .build());
+
+        assertThat(result).isSameAs(expected);
+        assertThat(executor.execution.logContext()).isEqualTo("single-call");
+        assertThat(executor.execution.failureMessage()).isEqualTo("single failure");
+        assertThat(executor.callOptions.maxAttempts()).isEqualTo(1);
+        assertThat(executor.callOptions.enableRepair()).isFalse();
+        assertThat(executor.callOptions.includeLastErrorInRetryPrompt()).isFalse();
+        assertThat(executor.callOptions.maxErrorMessageLength()).isEqualTo(512);
+        assertThat(executor.callOptions.strictJsonInstruction()).isEqualTo("Use strict global JSON.");
+        assertThat(executor.defaultOptions().maxAttempts()).isEqualTo(3);
+        assertThat(executor.defaultOptions().enableRepair()).isTrue();
+    }
+
+    @Test
+    void shouldUseExecutorDefaultsWhenCallOptionsAreMissing() {
+        RecordingStructuredOutputExecutor executor = new RecordingStructuredOutputExecutor(
+            StructuredOutputOptions.builder()
+                .maxAttempts(4)
+                .includeLastErrorInRetryPrompt(false)
+                .enableRepair(false)
+                .maxErrorMessageLength(300)
+                .strictJsonInstruction("Use global JSON only.")
+                .build()
+        );
+        SpringAiStructuredOutputGuard guard = new SpringAiStructuredOutputGuard(executor);
+        TestOutput expected = new TestOutput("ok");
+        executor.result = expected;
+
+        TestOutput result = guard.call(null, "Return a test output.", "hi", TestOutput.class,
+            StructuredOutputCallOptions.defaults());
+
+        assertThat(result).isSameAs(expected);
+        assertThat(executor.callOptions.maxAttempts()).isEqualTo(4);
+        assertThat(executor.callOptions.includeLastErrorInRetryPrompt()).isFalse();
+        assertThat(executor.callOptions.enableRepair()).isFalse();
+        assertThat(executor.callOptions.maxErrorMessageLength()).isEqualTo(300);
+        assertThat(executor.callOptions.strictJsonInstruction()).isEqualTo("Use global JSON only.");
+    }
+
+    @Test
     void shouldAppendOrderedCustomRepairStepsToDefaultRepairer() {
         contextRunner
             .withBean("markGuardStep", JsonRepairStep.class,
@@ -237,6 +298,28 @@ class StructuredOutputGuardAutoConfigurationTest {
         @Override
         public String name() {
             return name;
+        }
+    }
+
+    private record TestOutput(String value) {
+    }
+
+    private static final class RecordingStructuredOutputExecutor extends StructuredOutputExecutor {
+
+        private StructuredOutputExecution<?> execution;
+        private StructuredOutputOptions callOptions;
+        private Object result;
+
+        private RecordingStructuredOutputExecutor(StructuredOutputOptions defaultOptions) {
+            super(defaultOptions, new StructuredOutputErrorClassifier(), new JsonRepairer());
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public <T> T execute(StructuredOutputExecution<T> execution, StructuredOutputOptions callOptions) {
+            this.execution = execution;
+            this.callOptions = callOptions;
+            return (T) result;
         }
     }
 }
