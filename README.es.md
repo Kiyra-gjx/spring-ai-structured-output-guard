@@ -107,6 +107,27 @@ spring:
 | `spring.ai.structured-output.guard.max-error-message-length` | `200` | Limita la longitud del error incluido en el prompt de reintento |
 | `spring.ai.structured-output.guard.metrics.enabled` | `true` | Activa el listener de Micrometer cuando existe un Bean `MeterRegistry` |
 
+### Overrides por llamada
+
+La configuración global debe seguir siendo el camino principal. Cuando una llamada necesita una postura distinta de reintentos o repair, configura solo los campos que quieras sobrescribir en `StructuredOutputCallOptions`; los campos no definidos siguen usando la configuración global del starter, y por debajo continúan aplicando los valores por defecto del core.
+
+```java
+ResumeSummary summary = outputGuard.call(
+    chatClient,
+    "You are a recruiting assistant.",
+    "Resume content:\n" + resumeText,
+    ResumeSummary.class,
+    StructuredOutputCallOptions.builder()
+        .logContext("strict-resume-task")
+        .maxAttempts(1)
+        .enableRepair(false)
+        .includeLastErrorInRetryPrompt(false)
+        .build()
+);
+```
+
+La prioridad de override es: opciones por llamada > configuración global del starter > valores por defecto del core. Es útil para rutas de baja latencia, llamadas que deben fallar rápido o prompts donde la reparación local de JSON sería más arriesgada que devolver un error.
+
 ## 🔧 Estrategia de reparación
 
 La capa de reparación es conservadora por diseño. Solo toca ruido de formato con bajo riesgo de normalización:

@@ -107,6 +107,27 @@ spring:
 | `spring.ai.structured-output.guard.max-error-message-length` | `200` | 再試行プロンプトに含めるエラーメッセージ長を制限する |
 | `spring.ai.structured-output.guard.metrics.enabled` | `true` | `MeterRegistry` Bean がある場合に Micrometer リスナーを有効にする |
 
+### 呼び出しごとの上書き
+
+通常はグローバル設定を主な経路として使います。特定の呼び出しだけ異なる再試行や repair の方針が必要な場合は、`StructuredOutputCallOptions` で上書きしたい項目だけを設定します。未設定の項目は starter のグローバル設定を使い、その下には core のデフォルト値が残ります。
+
+```java
+ResumeSummary summary = outputGuard.call(
+    chatClient,
+    "You are a recruiting assistant.",
+    "Resume content:\n" + resumeText,
+    ResumeSummary.class,
+    StructuredOutputCallOptions.builder()
+        .logContext("strict-resume-task")
+        .maxAttempts(1)
+        .enableRepair(false)
+        .includeLastErrorInRetryPrompt(false)
+        .build()
+);
+```
+
+優先順位は、呼び出しごとの設定 > starter のグローバル設定 > core のデフォルト値です。低レイテンシ経路、fail-fast が必要な呼び出し、またはローカル JSON repair よりエラーとして返す方が安全なプロンプトで役立ちます。
+
 ## 🔧 修復ポリシー
 
 修復レイヤーは意図的に保守的です。低リスクで正規化しやすいフォーマットノイズだけを扱います。

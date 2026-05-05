@@ -107,6 +107,27 @@ spring:
 | `spring.ai.structured-output.guard.max-error-message-length` | `200` | Truncates parse errors included in retry prompts |
 | `spring.ai.structured-output.guard.metrics.enabled` | `true` | Enables the Micrometer listener when a `MeterRegistry` bean is present |
 
+### Per-call overrides
+
+Global properties should stay the main path. When one call needs a different retry or repair posture, set only the fields you want to override on `StructuredOutputCallOptions`; unset fields continue to use the starter's global configuration, and core defaults still apply underneath.
+
+```java
+ResumeSummary summary = outputGuard.call(
+    chatClient,
+    "You are a recruiting assistant.",
+    "Resume content:\n" + resumeText,
+    ResumeSummary.class,
+    StructuredOutputCallOptions.builder()
+        .logContext("strict-resume-task")
+        .maxAttempts(1)
+        .enableRepair(false)
+        .includeLastErrorInRetryPrompt(false)
+        .build()
+);
+```
+
+Override precedence is: per-call options > starter global configuration > core defaults. This is useful for low-latency paths, calls that must fail fast, or prompts where local JSON repair would be riskier than returning an error.
+
 ## 🔧 Repair Strategy
 
 The repair layer stays conservative on purpose. It only handles formatting noise that is low-risk to normalize:
