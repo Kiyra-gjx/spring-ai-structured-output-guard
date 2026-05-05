@@ -82,6 +82,18 @@ public class ResumeService {
 
 如果你主要想看详细对比，直接查看 [docs/adoption-notes.md](./docs/adoption-notes.md)。
 
+## 🚫 何时不应使用本库
+
+如果问题不是低风险的 JSON 格式恢复，应使用更合适的层来处理：
+
+- 不要把它当作模型提供商原生 structured output 或 JSON schema mode 的替代品。只要提供商支持且契约合适，应优先使用原生能力。
+- 不要把它当作 schema validation 或业务字段校验的替代品。结构不匹配、必填业务值缺失、语义错误的 payload，仍应在靠近数据模型的位置做校验。
+- 不要用它修复语义上已经错误的响应，例如 JSON 合法但回答了错误问题的 payload。
+- 不要依赖它做激进 JSON 猜测，例如补全缺失括号、重写单引号伪 JSON，或删除 JSON comment。
+- 不要用它默认保存或传播完整模型输出。guard 保持轻量失败上下文；原始或 repair 后内容片段只应通过显式、严格受限的选项暴露。
+
+它适合仍在使用 prompt-based structured output，且主要失败来自 Markdown code fence、包裹性说明文本、尾逗号、原始控制字符等格式噪音的场景。它也适合把 retry、repair 和异常包装从业务代码下沉到 guard 层，避免每个服务重复实现。
+
 ## ⚙️ 配置
 
 配置前缀是 `spring.ai.structured-output.guard`。
