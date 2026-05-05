@@ -245,7 +245,7 @@ class StructuredOutputRepairConfig {
 - `starter`
   Spring Boot 自动配置和开箱即用的集成入口。
 - `example`
-  可直接运行的 demo 应用。
+  可直接运行的 demo 应用。它还暴露 `GET /demo/failure-paths`，这是一个不需要 API key 的本地脚本化 demo，用来展示 code fence 修复、尾逗号修复、repair 无法恢复后 retry、最终 `StructuredOutputException` 失败上下文，以及单次调用 `maxAttempts` / `enableRepair` 覆盖。
 
 ## 📌 兼容性
 

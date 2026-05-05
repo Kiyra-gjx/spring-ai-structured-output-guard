@@ -245,7 +245,7 @@ If you are integrating `core` directly instead of the Spring starter, you can pa
 - `starter`
   Spring Boot auto-configuration and the out-of-the-box integration entry point.
 - `example`
-  A runnable demo application.
+  A runnable demo application. It also exposes `GET /demo/failure-paths`, a local scripted demo that does not need an API key and shows code fence repair, trailing-comma repair, retry after unrecoverable repair, final `StructuredOutputException` failure context, and per-call `maxAttempts` / `enableRepair` overrides.
 
 ## 📌 Compatibility
 
