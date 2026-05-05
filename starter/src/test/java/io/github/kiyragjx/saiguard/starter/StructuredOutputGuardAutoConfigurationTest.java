@@ -194,6 +194,12 @@ class StructuredOutputGuardAutoConfigurationTest {
     void shouldPublishMicrometerMetricsForRepairRetryAndFailure() {
         contextRunner
             .withBean(MeterRegistry.class, SimpleMeterRegistry::new)
+            .withBean("explodeStep", JsonRepairStep.class, () -> JsonRepairStep.named("explode", text -> {
+                if (text.contains("trigger-step-failure")) {
+                    throw new IllegalArgumentException("bad repair");
+                }
+                return text;
+            }))
             .run(context -> {
                 MeterRegistry meterRegistry = context.getBean(MeterRegistry.class);
                 StructuredOutputExecutor executor = context.getBean(StructuredOutputExecutor.class);
@@ -237,19 +243,32 @@ class StructuredOutputGuardAutoConfigurationTest {
                     })
                     .build())).isInstanceOf(StructuredOutputException.class);
 
+                assertThatThrownBy(() -> executor.execute(StructuredOutputExecution.<String>builder()
+                    .systemPrompt("Return JSON")
+                    .userPrompt("hi")
+                    .responder((systemPrompt, userPrompt) -> "{trigger-step-failure")
+                    .parser(raw -> {
+                        throw new IllegalArgumentException("json parse error");
+                    })
+                    .build())).isInstanceOf(StructuredOutputException.class);
+
                 assertThat(counterValue(meterRegistry, "spring.ai.structured.output.guard.calls", "result", "repaired_success"))
                     .isEqualTo(1.0);
                 assertThat(counterValue(meterRegistry, "spring.ai.structured.output.guard.calls", "result", "success"))
                     .isEqualTo(1.0);
                 assertThat(counterValue(meterRegistry, "spring.ai.structured.output.guard.calls", "result", "failure"))
-                    .isEqualTo(1.0);
+                    .isEqualTo(2.0);
                 assertThat(counterValue(meterRegistry, "spring.ai.structured.output.guard.repair.attempts"))
-                    .isEqualTo(4.0);
+                    .isEqualTo(5.0);
                 assertThat(counterValue(meterRegistry, "spring.ai.structured.output.guard.repair.success"))
                     .isEqualTo(1.0);
                 assertThat(counterValue(meterRegistry, "spring.ai.structured.output.guard.retries", "error_type", "structured_output"))
                     .isEqualTo(2.0);
                 assertThat(counterValue(meterRegistry, "spring.ai.structured.output.guard.failures", "error_type", "structured_output"))
+                    .isEqualTo(1.0);
+                assertThat(counterValue(meterRegistry, "spring.ai.structured.output.guard.failures", "error_type", "other"))
+                    .isEqualTo(1.0);
+                assertThat(counterValue(meterRegistry, "spring.ai.structured.output.guard.repair.step.failures", "step", "explode"))
                     .isEqualTo(1.0);
             });
     }

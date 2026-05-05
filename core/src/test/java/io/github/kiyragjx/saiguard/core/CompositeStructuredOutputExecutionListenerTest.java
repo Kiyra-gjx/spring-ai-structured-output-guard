@@ -31,4 +31,27 @@ class CompositeStructuredOutputExecutionListenerTest {
 
         assertEquals(List.of("resume-task:2:true"), events);
     }
+
+    @Test
+    void shouldIgnoreRepairStepFailureListenerFailuresAndContinueDispatching() {
+        List<String> events = new ArrayList<>();
+        CompositeStructuredOutputExecutionListener listener = new CompositeStructuredOutputExecutionListener(List.of(
+            new StructuredOutputExecutionListener() {
+                @Override
+                public void onRepairStepFailed(String logContext, String stepName, Throwable error) {
+                    throw new IllegalStateException("boom");
+                }
+            },
+            new StructuredOutputExecutionListener() {
+                @Override
+                public void onRepairStepFailed(String logContext, String stepName, Throwable error) {
+                    events.add(logContext + ":" + stepName + ":" + error.getMessage());
+                }
+            }
+        ));
+
+        listener.onRepairStepFailed("resume-task", "custom-step", new IllegalStateException("step failed"));
+
+        assertEquals(List.of("resume-task:custom-step:step failed"), events);
+    }
 }

@@ -218,7 +218,7 @@ class StructuredOutputRepairConfig {
 }
 ```
 
-Each step receives the previous step's output. If a custom step throws an exception or returns `null`, `JsonRepairer` fails fast with an `IllegalStateException` instead of silently skipping the bad step.
+Each step receives the previous step's output. If a custom step throws an exception or returns `null`, `JsonRepairer` fails fast with an `IllegalStateException` instead of silently skipping the bad step. The failure message, warning log, and `StructuredOutputExecutionListener.onRepairStepFailed(...)` event include the failing step name, but they do not include the full payload.
 
 ## Observability
 
@@ -231,12 +231,13 @@ Set `spring.ai.structured-output.guard.metrics.enabled=false` if you want to kee
 | `spring.ai.structured.output.guard.calls` | `result=success|repaired_success|failure` | Total completed guard calls grouped by final outcome |
 | `spring.ai.structured.output.guard.repair.attempts` | none | Number of local repair passes entered after parse failures |
 | `spring.ai.structured.output.guard.repair.success` | none | Number of times repaired content parsed successfully |
+| `spring.ai.structured.output.guard.repair.step.failures` | `step` | Number of repair step failures grouped by step name |
 | `spring.ai.structured.output.guard.retries` | `error_type=structured_output|other` | Number of retry attempts scheduled |
 | `spring.ai.structured.output.guard.failures` | `error_type=structured_output|other` | Number of final failures after guard processing |
 
 `repair.attempts` counts repair passes, not just top-level requests. If one request fails parsing twice and enters repair twice before the final result, the counter increases by `2`.
 
-If you are integrating `core` directly instead of the Spring starter, you can pass your own `StructuredOutputExecutionListener` to `StructuredOutputExecutor` and forward the same lifecycle events into your observability stack.
+If you are integrating `core` directly instead of the Spring starter, you can pass your own `StructuredOutputExecutionListener` to `StructuredOutputExecutor` and forward the same lifecycle events into your observability stack. Override `onRepairStepFailed(logContext, stepName, error)` when you need to identify which custom `JsonRepairStep` failed.
 
 ## 🧱 Project Layout
 

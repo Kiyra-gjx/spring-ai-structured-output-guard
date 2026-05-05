@@ -218,7 +218,7 @@ class StructuredOutputRepairConfig {
 }
 ```
 
-每个步骤都会接收上一个步骤的输出。如果自定义步骤抛出异常或返回 `null`，`JsonRepairer` 会直接以 `IllegalStateException` fail-fast，而不是悄悄跳过这个坏步骤。
+每个步骤都会接收上一个步骤的输出。如果自定义步骤抛出异常或返回 `null`，`JsonRepairer` 会直接以 `IllegalStateException` fail-fast，而不是悄悄跳过这个坏步骤。失败消息、warning 日志和 `StructuredOutputExecutionListener.onRepairStepFailed(...)` 事件都会包含失败 step name，但不会包含完整 payload。
 
 ## 可观测性
 
@@ -231,12 +231,13 @@ class StructuredOutputRepairConfig {
 | `spring.ai.structured.output.guard.calls` | `result=success|repaired_success|failure` | 按最终结果统计完成的 guard 调用总数 |
 | `spring.ai.structured.output.guard.repair.attempts` | 无 | 解析失败后进入本地 repair 流程的次数 |
 | `spring.ai.structured.output.guard.repair.success` | 无 | repair 后解析成功的次数 |
+| `spring.ai.structured.output.guard.repair.step.failures` | `step` | 按 step name 统计 repair step 失败次数 |
 | `spring.ai.structured.output.guard.retries` | `error_type=structured_output|other` | 被调度的重试次数 |
 | `spring.ai.structured.output.guard.failures` | `error_type=structured_output|other` | guard 处理后的最终失败次数 |
 
 `repair.attempts` 统计的是 repair pass 次数，不是顶层请求数。如果同一个请求失败两次、进入两次 repair，再得到最终结果，计数器会增加 `2`。
 
-如果你直接集成的是 `core` 模块而不是 Spring starter，也可以把自己的 `StructuredOutputExecutionListener` 传给 `StructuredOutputExecutor`，把同样的生命周期事件接入你现有的可观测体系。
+如果你直接集成的是 `core` 模块而不是 Spring starter，也可以把自己的 `StructuredOutputExecutionListener` 传给 `StructuredOutputExecutor`，把同样的生命周期事件接入你现有的可观测体系。需要定位具体哪个自定义 `JsonRepairStep` 失败时，覆盖 `onRepairStepFailed(logContext, stepName, error)`。
 
 ## 🧱 项目结构
 

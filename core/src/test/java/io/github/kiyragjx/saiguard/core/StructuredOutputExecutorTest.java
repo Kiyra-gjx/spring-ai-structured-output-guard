@@ -490,6 +490,38 @@ class StructuredOutputExecutorTest {
     }
 
     @Test
+    void shouldNotifyRepairStepFailureWithStepName() {
+        RecordingExecutionListener listener = new RecordingExecutionListener();
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder().maxAttempts(1).build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer(List.of(JsonRepairStep.named("explode", text -> {
+                throw new IllegalArgumentException("bad repair");
+            }))),
+            listener
+        );
+
+        StructuredOutputException exception = assertThrows(StructuredOutputException.class, () -> executor.execute(
+            StructuredOutputExecution.<String>builder()
+                .systemPrompt("Return JSON")
+                .userPrompt("hi")
+                .logContext("resume-task")
+                .responder((systemPrompt, userPrompt) -> "{bad json")
+                .parser(raw -> {
+                    throw new IllegalArgumentException("json parse error");
+                })
+                .build()));
+
+        assertTrue(exception.getCause().getMessage().contains("Json repair step 'explode' failed"));
+        assertEquals(List.of(
+                "repair-attempted:resume-task",
+                "repair-step-failed:resume-task:explode:Json repair step 'explode' failed",
+                "failure:resume-task:1:other"
+            ),
+            listener.events);
+    }
+
+    @Test
     void shouldKeepMainFlowWorkingWhenOneExecutionListenerFails() {
         RecordingExecutionListener healthyListener = new RecordingExecutionListener();
         CompositeStructuredOutputExecutionListener listener = new CompositeStructuredOutputExecutionListener(List.of(
@@ -542,6 +574,11 @@ class StructuredOutputExecutorTest {
         @Override
         public void onRepairSucceeded(String logContext) {
             events.add("repair-succeeded:" + logContext);
+        }
+
+        @Override
+        public void onRepairStepFailed(String logContext, String stepName, Throwable error) {
+            events.add("repair-step-failed:" + logContext + ":" + stepName + ":" + error.getMessage());
         }
 
         @Override
