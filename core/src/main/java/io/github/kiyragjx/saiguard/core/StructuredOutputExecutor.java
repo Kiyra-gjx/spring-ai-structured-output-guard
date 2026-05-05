@@ -49,6 +49,7 @@ public class StructuredOutputExecutor {
     public <T> T execute(StructuredOutputExecution<T> execution, StructuredOutputOptions callOptions) {
         StructuredOutputOptions effectiveOptions = callOptions == null ? options : callOptions;
         Exception lastError = null;
+        ExecutionFailureTracker failureTracker = new ExecutionFailureTracker();
 
         for (int attempt = 1; attempt <= effectiveOptions.maxAttempts(); attempt++) {
             String attemptSystemPrompt = attempt == 1
@@ -57,16 +58,25 @@ public class StructuredOutputExecutor {
 
             try {
                 String rawContent = execution.responder().respond(attemptSystemPrompt, execution.userPrompt());
-                ParseResult<T> parseResult = parseWithRepair(effectiveOptions, execution.parser(), rawContent, execution.logContext());
+                ParseResult<T> parseResult = parseWithRepair(
+                    effectiveOptions,
+                    execution.parser(),
+                    rawContent,
+                    execution.logContext(),
+                    failureTracker
+                );
                 executionListener.onSuccess(safeLogContext(execution.logContext()), attempt, parseResult.repaired());
                 return parseResult.value();
             } catch (StructuredOutputException e) {
-                executionListener.onFailure(safeLogContext(execution.logContext()), attempt, errorType(e));
-                throw e;
+                String errorType = errorType(e);
+                failureTracker.recordAttempt(attempt, errorType);
+                executionListener.onFailure(safeLogContext(execution.logContext()), attempt, errorType);
+                throw e.withFailureContext(failureTracker.toContext());
             } catch (Exception e) {
+                failureTracker.recordAttempt(attempt, errorType(e));
                 if (!shouldRetry(effectiveOptions, e, attempt)) {
                     executionListener.onFailure(safeLogContext(execution.logContext()), attempt, errorType(e));
-                    throw new StructuredOutputException(buildFailureMessage(execution), e);
+                    throw new StructuredOutputException(buildFailureMessage(execution), e, failureTracker.toContext());
                 }
                 lastError = e;
                 executionListener.onRetry(safeLogContext(execution.logContext()), attempt + 1, errorType(e));
@@ -75,8 +85,10 @@ public class StructuredOutputExecutor {
             }
         }
 
-        executionListener.onFailure(safeLogContext(execution.logContext()), effectiveOptions.maxAttempts(), errorType(lastError));
-        throw new StructuredOutputException(buildFailureMessage(execution), lastError);
+        String errorType = errorType(lastError);
+        failureTracker.recordAttempt(effectiveOptions.maxAttempts(), errorType);
+        executionListener.onFailure(safeLogContext(execution.logContext()), effectiveOptions.maxAttempts(), errorType);
+        throw new StructuredOutputException(buildFailureMessage(execution), lastError, failureTracker.toContext());
     }
 
     private boolean shouldRetry(StructuredOutputOptions options, Exception error, int attempt) {
@@ -128,7 +140,8 @@ public class StructuredOutputExecutor {
         StructuredOutputOptions options,
         StructuredOutputParser<T> parser,
         String rawContent,
-        String logContext
+        String logContext,
+        ExecutionFailureTracker failureTracker
     ) throws Exception {
         try {
             return new ParseResult<>(parser.parse(rawContent), false);
@@ -137,6 +150,7 @@ public class StructuredOutputExecutor {
                 throw originalError;
             }
 
+            failureTracker.recordRepairAttempted();
             executionListener.onRepairAttempted(safeLogContext(logContext));
             String repaired = jsonRepairer.repair(rawContent);
             if (repaired == null || repaired.equals(rawContent)) {
@@ -145,6 +159,7 @@ public class StructuredOutputExecutor {
 
             try {
                 T value = parser.parse(repaired);
+                failureTracker.recordRepairSucceeded();
                 executionListener.onRepairSucceeded(safeLogContext(logContext));
                 log.info("{} parsed successfully after JSON repair", safeLogContext(logContext));
                 return new ParseResult<>(value, true);
@@ -156,5 +171,34 @@ public class StructuredOutputExecutor {
     }
 
     private record ParseResult<T>(T value, boolean repaired) {
+    }
+
+    private static final class ExecutionFailureTracker {
+        private int attemptCount;
+        private boolean repairAttempted;
+        private boolean repairSucceeded;
+        private String errorType = StructuredOutputFailureContext.ERROR_TYPE_UNKNOWN;
+
+        private void recordAttempt(int attemptCount, String errorType) {
+            this.attemptCount = Math.max(this.attemptCount, attemptCount);
+            this.errorType = errorType;
+        }
+
+        private void recordRepairAttempted() {
+            repairAttempted = true;
+        }
+
+        private void recordRepairSucceeded() {
+            repairSucceeded = true;
+        }
+
+        private StructuredOutputFailureContext toContext() {
+            return new StructuredOutputFailureContext(
+                attemptCount,
+                repairAttempted,
+                repairSucceeded,
+                errorType
+            );
+        }
     }
 }

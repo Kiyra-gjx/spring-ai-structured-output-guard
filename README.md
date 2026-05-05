@@ -148,6 +148,21 @@ It does not try to:
 
 Those cases fall through to targeted retry or ultimately raise `StructuredOutputException`.
 
+## Failure Context
+
+When the guard ultimately throws `StructuredOutputException`, callers can inspect a small failure context without parsing logs:
+
+- `attemptCount`
+  Number of model attempts completed before failure.
+- `repairAttempted`
+  Whether the local JSON repair path was entered at least once.
+- `repairSucceeded`
+  Whether any repair pass produced content that parsed successfully before a later failure.
+- `errorType`
+  Classified as `structured_output`, `other`, or `unknown`.
+
+The exception exposes these values through `failureContext()` and convenience methods such as `attemptCount()` and `errorType()`. It does not attach raw model output or repaired output snippets by default, so potentially sensitive payloads are not stored on the exception object.
+
 ## Extending Repair
 
 If the default repair pass is close but not quite enough for your model or provider, you now have two extension paths:

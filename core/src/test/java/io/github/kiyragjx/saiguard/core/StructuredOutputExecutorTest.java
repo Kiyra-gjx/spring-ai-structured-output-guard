@@ -7,10 +7,26 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class StructuredOutputExecutorTest {
+
+    @Test
+    void shouldKeepLegacyExceptionConstructorCompatible() {
+        StructuredOutputException exception = new StructuredOutputException(
+            "boom",
+            new IllegalArgumentException("json parse error")
+        );
+
+        assertEquals("boom", exception.getMessage());
+        assertEquals(0, exception.attemptCount());
+        assertFalse(exception.repairAttempted());
+        assertFalse(exception.repairSucceeded());
+        assertEquals("unknown", exception.errorType());
+    }
 
     @Test
     void shouldRepairJsonBeforeRetrying() {
@@ -186,6 +202,202 @@ class StructuredOutputExecutorTest {
                 throw new IllegalArgumentException("json parse error");
             })
             .build()));
+    }
+
+    @Test
+    void shouldExposeFailureContextWhenFirstParseFailureStopsImmediately() {
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder()
+                .maxAttempts(1)
+                .enableRepair(false)
+                .build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer()
+        );
+
+        StructuredOutputException exception = assertThrows(StructuredOutputException.class, () -> executor.execute(
+            StructuredOutputExecution.<String>builder()
+                .systemPrompt("Return JSON")
+                .userPrompt("hi")
+                .responder((systemPrompt, userPrompt) -> "{bad json")
+                .parser(raw -> {
+                    throw new IllegalArgumentException("json parse error");
+                })
+                .build()));
+
+        assertEquals(1, exception.attemptCount());
+        assertFalse(exception.repairAttempted());
+        assertFalse(exception.repairSucceeded());
+        assertEquals("structured_output", exception.errorType());
+        assertEquals(exception.failureContext().attemptCount(), exception.attemptCount());
+    }
+
+    @Test
+    void shouldExposeFailureContextWhenRepairStillFails() {
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder().maxAttempts(1).build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer()
+        );
+
+        StructuredOutputException exception = assertThrows(StructuredOutputException.class, () -> executor.execute(
+            StructuredOutputExecution.<String>builder()
+                .systemPrompt("Return JSON")
+                .userPrompt("hi")
+                .responder((systemPrompt, userPrompt) -> """
+                    ```json
+                    {"value":"ok",}
+                    ```
+                    """)
+                .parser(raw -> {
+                    throw new IllegalArgumentException("json parse error");
+                })
+                .build()));
+
+        assertEquals(1, exception.attemptCount());
+        assertTrue(exception.repairAttempted());
+        assertFalse(exception.repairSucceeded());
+        assertEquals("structured_output", exception.errorType());
+    }
+
+    @Test
+    void shouldExposeFailureContextWhenRetriesAreExhausted() {
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder()
+                .maxAttempts(3)
+                .enableRepair(false)
+                .build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer()
+        );
+        AtomicInteger attempts = new AtomicInteger();
+
+        StructuredOutputException exception = assertThrows(StructuredOutputException.class, () -> executor.execute(
+            StructuredOutputExecution.<String>builder()
+                .systemPrompt("Return JSON")
+                .userPrompt("hi")
+                .responder((systemPrompt, userPrompt) -> {
+                    attempts.incrementAndGet();
+                    return "{\"value\":\"ok\"";
+                })
+                .parser(raw -> {
+                    throw new IllegalArgumentException("unexpected end-of-input");
+                })
+                .build()));
+
+        assertEquals(3, attempts.get());
+        assertEquals(3, exception.attemptCount());
+        assertFalse(exception.repairAttempted());
+        assertFalse(exception.repairSucceeded());
+        assertEquals("structured_output", exception.errorType());
+    }
+
+    @Test
+    void shouldClassifyNonStructuredFailureInFailureContext() {
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder().maxAttempts(3).build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer()
+        );
+
+        StructuredOutputException exception = assertThrows(StructuredOutputException.class, () -> executor.execute(
+            StructuredOutputExecution.<String>builder()
+                .systemPrompt("Return JSON")
+                .userPrompt("hi")
+                .responder((systemPrompt, userPrompt) -> {
+                    throw new IllegalStateException("provider timeout");
+                })
+                .parser(raw -> raw)
+                .build()));
+
+        assertEquals(1, exception.attemptCount());
+        assertFalse(exception.repairAttempted());
+        assertFalse(exception.repairSucceeded());
+        assertEquals("other", exception.errorType());
+    }
+
+    @Test
+    void shouldEnrichStructuredOutputExceptionThrownByResponder() {
+        StructuredOutputExecutor executor = new StructuredOutputExecutor();
+        IllegalArgumentException cause = new IllegalArgumentException("json parse error");
+        StructuredOutputException thrownByResponder = new StructuredOutputException(
+            "provider returned malformed structured output",
+            cause
+        );
+
+        StructuredOutputException exception = assertThrows(StructuredOutputException.class, () -> executor.execute(
+            StructuredOutputExecution.<String>builder()
+                .systemPrompt("Return JSON")
+                .userPrompt("hi")
+                .responder((systemPrompt, userPrompt) -> {
+                    throw thrownByResponder;
+                })
+                .parser(raw -> raw)
+                .build()));
+
+        assertEquals(thrownByResponder.getMessage(), exception.getMessage());
+        assertEquals(cause, exception.getCause());
+        assertEquals(1, exception.attemptCount());
+        assertFalse(exception.repairAttempted());
+        assertFalse(exception.repairSucceeded());
+        assertEquals("structured_output", exception.errorType());
+    }
+
+    @Test
+    void shouldEnrichStructuredOutputExceptionThrownByParserAfterRepairAttempt() {
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder().maxAttempts(1).build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer()
+        );
+
+        StructuredOutputException exception = assertThrows(StructuredOutputException.class, () -> executor.execute(
+            StructuredOutputExecution.<String>builder()
+                .systemPrompt("Return JSON")
+                .userPrompt("hi")
+                .responder((systemPrompt, userPrompt) -> """
+                    ```json
+                    {"value":"ok",}
+                    ```
+                    """)
+                .parser(raw -> {
+                    throw new StructuredOutputException(
+                        "parser rejected structured output",
+                        new IllegalArgumentException("json parse error")
+                    );
+                })
+                .build()));
+
+        assertEquals(1, exception.attemptCount());
+        assertTrue(exception.repairAttempted());
+        assertFalse(exception.repairSucceeded());
+        assertEquals("structured_output", exception.errorType());
+    }
+
+    @Test
+    void shouldPreserveStructuredOutputExceptionWhenItAlreadyHasFailureContext() {
+        StructuredOutputExecutor executor = new StructuredOutputExecutor();
+        StructuredOutputException thrownByResponder = new StructuredOutputException(
+            "custom failure",
+            new IllegalArgumentException("json parse error"),
+            new StructuredOutputFailureContext(7, true, false, "custom")
+        );
+
+        StructuredOutputException exception = assertThrows(StructuredOutputException.class, () -> executor.execute(
+            StructuredOutputExecution.<String>builder()
+                .systemPrompt("Return JSON")
+                .userPrompt("hi")
+                .responder((systemPrompt, userPrompt) -> {
+                    throw thrownByResponder;
+                })
+                .parser(raw -> raw)
+                .build()));
+
+        assertSame(thrownByResponder, exception);
+        assertEquals(7, exception.attemptCount());
+        assertTrue(exception.repairAttempted());
+        assertFalse(exception.repairSucceeded());
+        assertEquals("custom", exception.errorType());
     }
 
     @Test

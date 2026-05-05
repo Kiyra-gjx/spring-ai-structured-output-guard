@@ -148,6 +148,21 @@ No intenta:
 
 Esos casos pasan a reintento dirigido o terminan en `StructuredOutputException`.
 
+## Contexto de fallo
+
+Cuando el guard termina lanzando `StructuredOutputException`, quien llama puede inspeccionar un contexto de fallo pequeño sin depender solo de logs:
+
+- `attemptCount`
+  Número de llamadas al modelo completadas antes del fallo.
+- `repairAttempted`
+  Indica si se entró al menos una vez en la ruta local de JSON repair.
+- `repairSucceeded`
+  Indica si algún contenido reparado llegó a parsearse correctamente antes de un fallo posterior.
+- `errorType`
+  Clasificado como `structured_output`, `other` o `unknown`.
+
+La excepción expone estos valores con `failureContext()` y métodos de conveniencia como `attemptCount()` y `errorType()`. Por defecto no adjunta la salida cruda del modelo ni snippets reparados, así que los payloads potencialmente sensibles no quedan almacenados en el objeto de excepción.
+
 ## Extender la reparación
 
 Si el repair por defecto está cerca de lo que necesitas pero no llega del todo, ahora tienes dos vías de extensión:

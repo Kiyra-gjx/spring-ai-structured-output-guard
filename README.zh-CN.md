@@ -148,6 +148,21 @@ guard 的修复层故意保持保守，只处理低风险、格式性的脏数�
 
 这些情况会落入定向重试，或者最终抛出 `StructuredOutputException`。
 
+## 失败上下文
+
+当 guard 最终抛出 `StructuredOutputException` 时，调用方可以直接读取一组轻量失败上下文，而不必只依赖日志：
+
+- `attemptCount`
+  失败前已经完成的模型调用次数。
+- `repairAttempted`
+  是否至少进入过一次本地 JSON repair 路径。
+- `repairSucceeded`
+  是否存在某次 repair 后内容解析成功，但后续流程仍然失败。
+- `errorType`
+  分类为 `structured_output`、`other` 或 `unknown`。
+
+异常通过 `failureContext()` 暴露这些值，也提供 `attemptCount()`、`errorType()` 等便捷方法。默认不会把原始模型输出或 repair 后输出片段挂到异常对象上，避免把潜在敏感 payload 无控制地传播出去。
+
 ## 扩展修复能力
 
 如果默认 repair 过程已经接近你的需求，但还不够，你现在有两种扩展方式：

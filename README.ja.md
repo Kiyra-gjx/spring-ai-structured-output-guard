@@ -148,6 +148,21 @@ ResumeSummary summary = outputGuard.call(
 
 これらのケースは定向リトライに回るか、最終的に `StructuredOutputException` を返します。
 
+## 失敗コンテキスト
+
+guard が最終的に `StructuredOutputException` を投げた場合、呼び出し側はログに頼らず小さな失敗コンテキストを参照できます。
+
+- `attemptCount`
+  失敗までに完了したモデル呼び出し回数。
+- `repairAttempted`
+  ローカル JSON repair 経路に少なくとも一度入ったかどうか。
+- `repairSucceeded`
+  いずれかの repair 後コンテンツが解析に成功したあと、後続処理で失敗したかどうか。
+- `errorType`
+  `structured_output`、`other`、`unknown` のいずれかに分類されます。
+
+例外は `failureContext()` でこれらの値を公開し、`attemptCount()` や `errorType()` などのショートカットも提供します。デフォルトでは raw model output や repaired output snippet を例外オブジェクトに保持しないため、機微な payload が不用意に伝播しません。
+
 ## 修復の拡張
 
 デフォルトの repair パスが近いものの十分ではない場合、拡張方法は 2 つあります。
