@@ -8,6 +8,9 @@ public interface StructuredOutputExecutionListener {
     default void onRepairSucceeded(String logContext) {
     }
 
+    default void onRepairStepFailed(String logContext, String stepName, Throwable error) {
+    }
+
     default void onRetry(String logContext, int attempt, String errorType) {
     }
 

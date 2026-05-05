@@ -95,18 +95,21 @@ class JsonRepairerTest {
 
     @Test
     void shouldFailFastWhenCustomStepReturnsNull() {
+        List<String> failedSteps = new ArrayList<>();
         JsonRepairer customRepairer = new JsonRepairer(List.of(
             JsonRepairStep.named("drop-everything", text -> null)
         ));
 
         IllegalStateException error = assertThrows(IllegalStateException.class,
-            () -> customRepairer.repair("{\"name\":\"guard\"}"));
+            () -> customRepairer.repair("{\"name\":\"guard\"}", (stepName, failure) -> failedSteps.add(stepName)));
 
         assertEquals("Json repair step 'drop-everything' returned null", error.getMessage());
+        assertEquals(List.of("drop-everything"), failedSteps);
     }
 
     @Test
     void shouldFailFastWhenCustomStepThrows() {
+        List<String> failedSteps = new ArrayList<>();
         JsonRepairer customRepairer = new JsonRepairer(List.of(
             JsonRepairStep.named("explode", text -> {
                 throw new IllegalArgumentException("bad repair");
@@ -114,8 +117,9 @@ class JsonRepairerTest {
         ));
 
         IllegalStateException error = assertThrows(IllegalStateException.class,
-            () -> customRepairer.repair("{\"name\":\"guard\"}"));
+            () -> customRepairer.repair("{\"name\":\"guard\"}", (stepName, failure) -> failedSteps.add(stepName)));
 
         assertEquals("Json repair step 'explode' failed", error.getMessage());
+        assertEquals(List.of("explode"), failedSteps);
     }
 }

@@ -152,7 +152,12 @@ public class StructuredOutputExecutor {
 
             failureTracker.recordRepairAttempted();
             executionListener.onRepairAttempted(safeLogContext(logContext));
-            String repaired = jsonRepairer.repair(rawContent);
+            String safeLogContext = safeLogContext(logContext);
+            String repaired = jsonRepairer.repair(rawContent, (stepName, error) -> {
+                executionListener.onRepairStepFailed(safeLogContext, stepName, error);
+                log.warn("{} JSON repair step failed. step={}, error={}",
+                    safeLogContext, stepName, sanitizeErrorMessage(options, error.getMessage()));
+            });
             if (repaired == null || repaired.equals(rawContent)) {
                 throw originalError;
             }

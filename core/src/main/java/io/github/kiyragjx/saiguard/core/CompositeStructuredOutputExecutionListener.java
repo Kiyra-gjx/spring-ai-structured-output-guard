@@ -29,6 +29,11 @@ public class CompositeStructuredOutputExecutionListener implements StructuredOut
     }
 
     @Override
+    public void onRepairStepFailed(String logContext, String stepName, Throwable error) {
+        notifyListeners(listener -> listener.onRepairStepFailed(logContext, stepName, error), "onRepairStepFailed");
+    }
+
+    @Override
     public void onRetry(String logContext, int attempt, String errorType) {
         notifyListeners(listener -> listener.onRetry(logContext, attempt, errorType), "onRetry");
     }

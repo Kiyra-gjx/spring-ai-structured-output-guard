@@ -29,18 +29,26 @@ public class JsonRepairer {
     }
 
     public String repair(String rawContent) {
+        return repair(rawContent, null);
+    }
+
+    public String repair(String rawContent, JsonRepairObservationListener observationListener) {
         if (rawContent == null || rawContent.isBlank()) {
             return rawContent;
         }
 
         String candidate = stripBom(rawContent).trim();
         for (JsonRepairStep step : steps) {
-            candidate = applyStep(step, candidate);
+            candidate = applyStep(step, candidate, observationListener);
         }
         return candidate;
     }
 
-    private String applyStep(JsonRepairStep step, String candidate) {
+    private String applyStep(
+        JsonRepairStep step,
+        String candidate,
+        JsonRepairObservationListener observationListener
+    ) {
         try {
             String repaired = step.repair(candidate);
             if (repaired == null) {
@@ -48,9 +56,22 @@ public class JsonRepairer {
             }
             return repaired;
         } catch (IllegalStateException e) {
+            notifyStepFailed(observationListener, step, e);
             throw e;
         } catch (RuntimeException e) {
-            throw new IllegalStateException("Json repair step '" + step.name() + "' failed", e);
+            IllegalStateException wrapped = new IllegalStateException("Json repair step '" + step.name() + "' failed", e);
+            notifyStepFailed(observationListener, step, wrapped);
+            throw wrapped;
+        }
+    }
+
+    private void notifyStepFailed(
+        JsonRepairObservationListener observationListener,
+        JsonRepairStep step,
+        RuntimeException error
+    ) {
+        if (observationListener != null) {
+            observationListener.onStepFailed(step.name(), error);
         }
     }
 

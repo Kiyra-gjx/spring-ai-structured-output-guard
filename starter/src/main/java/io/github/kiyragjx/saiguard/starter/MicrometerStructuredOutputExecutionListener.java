@@ -9,6 +9,7 @@ class MicrometerStructuredOutputExecutionListener implements StructuredOutputExe
     private static final String CALLS = METRIC_PREFIX + ".calls";
     private static final String REPAIR_ATTEMPTS = METRIC_PREFIX + ".repair.attempts";
     private static final String REPAIR_SUCCESS = METRIC_PREFIX + ".repair.success";
+    private static final String REPAIR_STEP_FAILURES = METRIC_PREFIX + ".repair.step.failures";
     private static final String RETRIES = METRIC_PREFIX + ".retries";
     private static final String FAILURES = METRIC_PREFIX + ".failures";
 
@@ -26,6 +27,11 @@ class MicrometerStructuredOutputExecutionListener implements StructuredOutputExe
     @Override
     public void onRepairSucceeded(String logContext) {
         meterRegistry.counter(REPAIR_SUCCESS).increment();
+    }
+
+    @Override
+    public void onRepairStepFailed(String logContext, String stepName, Throwable error) {
+        meterRegistry.counter(REPAIR_STEP_FAILURES, "step", safeTag(stepName)).increment();
     }
 
     @Override
