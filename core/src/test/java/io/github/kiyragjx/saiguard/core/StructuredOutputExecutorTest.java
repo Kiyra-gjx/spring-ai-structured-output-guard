@@ -174,6 +174,56 @@ class StructuredOutputExecutorTest {
     }
 
     @Test
+    void shouldExposeFailureContextWhenBackoffIsInterrupted() {
+        RecordingExecutionListener listener = new RecordingExecutionListener();
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder()
+                .maxAttempts(2)
+                .enableRepair(false)
+                .retryBackoffMillis(25)
+                .build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer(),
+            listener,
+            millis -> {
+                throw new InterruptedException("stop waiting");
+            }
+        );
+        AtomicInteger attempts = new AtomicInteger();
+        StructuredOutputException exception = null;
+
+        try {
+            exception = assertThrows(StructuredOutputException.class, () -> executor.execute(
+                StructuredOutputExecution.<String>builder()
+                    .systemPrompt("Return JSON")
+                    .userPrompt("hi")
+                    .logContext("resume-task")
+                    .responder((systemPrompt, userPrompt) -> {
+                        attempts.incrementAndGet();
+                        return "{\"value\":\"ok\"";
+                    })
+                    .parser(raw -> {
+                        throw new IllegalArgumentException("unexpected end-of-input");
+                    })
+                    .build()));
+            assertTrue(Thread.currentThread().isInterrupted());
+        } finally {
+            Thread.interrupted();
+        }
+
+        assertEquals(1, attempts.get());
+        assertEquals("Interrupted while waiting to retry structured output parsing", exception.getMessage());
+        assertTrue(exception.getCause() instanceof InterruptedException);
+        assertEquals(1, exception.attemptCount());
+        assertFalse(exception.repairAttempted());
+        assertFalse(exception.repairSucceeded());
+        assertEquals("other", exception.errorType());
+        assertEquals(1, exception.getSuppressed().length);
+        assertEquals("unexpected end-of-input", exception.getSuppressed()[0].getMessage());
+        assertEquals(List.of("failure:resume-task:1:other"), listener.events);
+    }
+
+    @Test
     void shouldUseCallOptionsWithoutMutatingDefaultOptions() {
         StructuredOutputExecutor executor = new StructuredOutputExecutor(
             StructuredOutputOptions.builder().maxAttempts(1).build(),

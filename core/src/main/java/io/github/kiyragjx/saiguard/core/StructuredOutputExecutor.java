@@ -91,7 +91,21 @@ public class StructuredOutputExecutor {
                     throw new StructuredOutputException(buildFailureMessage(execution), e, failureTracker.toContext());
                 }
                 lastError = e;
-                sleepBeforeRetry(effectiveOptions);
+                try {
+                    sleepBeforeRetry(effectiveOptions);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    String interruptedErrorType = errorType(interrupted);
+                    failureTracker.recordAttempt(attempt, interruptedErrorType);
+                    executionListener.onFailure(safeLogContext(execution.logContext()), attempt, interruptedErrorType);
+                    StructuredOutputException interruptedException = new StructuredOutputException(
+                        "Interrupted while waiting to retry structured output parsing",
+                        interrupted,
+                        failureTracker.toContext()
+                    );
+                    interruptedException.addSuppressed(e);
+                    throw interruptedException;
+                }
                 executionListener.onRetry(safeLogContext(execution.logContext()), attempt + 1, errorType(e));
                 log.warn("{} structured output parsing failed, retrying. attempt={}, error={}",
                     safeLogContext(execution.logContext()), attempt, sanitizeErrorMessage(effectiveOptions, e.getMessage()));
@@ -114,16 +128,11 @@ public class StructuredOutputExecutor {
         return options.retryOnOtherError();
     }
 
-    private void sleepBeforeRetry(StructuredOutputOptions options) {
+    private void sleepBeforeRetry(StructuredOutputOptions options) throws InterruptedException {
         if (options.retryBackoffMillis() == 0) {
             return;
         }
-        try {
-            retrySleeper.sleep(options.retryBackoffMillis());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new StructuredOutputException("Interrupted while waiting to retry structured output parsing", e);
-        }
+        retrySleeper.sleep(options.retryBackoffMillis());
     }
 
     private String buildRetrySystemPrompt(StructuredOutputOptions options, String systemPrompt, Exception lastError) {
