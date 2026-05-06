@@ -107,6 +107,9 @@ spring:
         enable-repair: true
         include-last-error-in-retry-prompt: true
         max-error-message-length: 200
+        retry-on-structured-output-error: true
+        retry-on-other-error: false
+        retry-backoff-millis: 0
         metrics:
           enabled: true
 ```
@@ -117,6 +120,9 @@ spring:
 | `spring.ai.structured-output.guard.enable-repair` | `true` | Enables lightweight JSON repair before retrying |
 | `spring.ai.structured-output.guard.include-last-error-in-retry-prompt` | `true` | Adds the sanitized parse error to retry instructions |
 | `spring.ai.structured-output.guard.max-error-message-length` | `200` | Truncates parse errors included in retry prompts |
+| `spring.ai.structured-output.guard.retry-on-structured-output-error` | `true` | Retries errors classified as structured-output parsing failures while attempts remain |
+| `spring.ai.structured-output.guard.retry-on-other-error` | `false` | Retries errors that are not classified as structured-output parsing failures |
+| `spring.ai.structured-output.guard.retry-backoff-millis` | `0` | Fixed wait before each retry; `0` means no wait |
 | `spring.ai.structured-output.guard.metrics.enabled` | `true` | Enables the Micrometer listener when a `MeterRegistry` bean is present |
 
 ### Per-call overrides
@@ -134,11 +140,14 @@ ResumeSummary summary = outputGuard.call(
         .maxAttempts(1)
         .enableRepair(false)
         .includeLastErrorInRetryPrompt(false)
+        .retryOnStructuredOutputError(false)
         .build()
 );
 ```
 
 Override precedence is: per-call options > starter global configuration > core defaults. This is useful for low-latency paths, calls that must fail fast, or prompts where local JSON repair would be riskier than returning an error.
+
+Keep retry policy simple unless production traffic shows a concrete need. `retry-on-other-error` is intentionally off by default because provider outages, authentication errors, and application exceptions usually need separate handling. `retry-backoff-millis` is a small fixed delay, not a resilience framework replacement.
 
 ## 🔧 Repair Strategy
 

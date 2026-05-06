@@ -13,6 +13,7 @@ public class StructuredOutputExecutor {
     private final StructuredOutputErrorClassifier errorClassifier;
     private final JsonRepairer jsonRepairer;
     private final StructuredOutputExecutionListener executionListener;
+    private final RetrySleeper retrySleeper;
 
     public StructuredOutputExecutor() {
         this(StructuredOutputOptions.defaults(), new StructuredOutputErrorClassifier(), new JsonRepairer(), NO_OP_LISTENER);
@@ -32,10 +33,21 @@ public class StructuredOutputExecutor {
         JsonRepairer jsonRepairer,
         StructuredOutputExecutionListener executionListener
     ) {
+        this(options, errorClassifier, jsonRepairer, executionListener, Thread::sleep);
+    }
+
+    StructuredOutputExecutor(
+        StructuredOutputOptions options,
+        StructuredOutputErrorClassifier errorClassifier,
+        JsonRepairer jsonRepairer,
+        StructuredOutputExecutionListener executionListener,
+        RetrySleeper retrySleeper
+    ) {
         this.options = options;
         this.errorClassifier = errorClassifier;
         this.jsonRepairer = jsonRepairer;
         this.executionListener = executionListener == null ? NO_OP_LISTENER : executionListener;
+        this.retrySleeper = retrySleeper == null ? Thread::sleep : retrySleeper;
     }
 
     public StructuredOutputOptions defaultOptions() {
@@ -79,6 +91,7 @@ public class StructuredOutputExecutor {
                     throw new StructuredOutputException(buildFailureMessage(execution), e, failureTracker.toContext());
                 }
                 lastError = e;
+                sleepBeforeRetry(effectiveOptions);
                 executionListener.onRetry(safeLogContext(execution.logContext()), attempt + 1, errorType(e));
                 log.warn("{} structured output parsing failed, retrying. attempt={}, error={}",
                     safeLogContext(execution.logContext()), attempt, sanitizeErrorMessage(effectiveOptions, e.getMessage()));
@@ -92,7 +105,25 @@ public class StructuredOutputExecutor {
     }
 
     private boolean shouldRetry(StructuredOutputOptions options, Exception error, int attempt) {
-        return attempt < options.maxAttempts() && errorClassifier.isStructuredOutputError(error);
+        if (attempt >= options.maxAttempts()) {
+            return false;
+        }
+        if (errorClassifier.isStructuredOutputError(error)) {
+            return options.retryOnStructuredOutputError();
+        }
+        return options.retryOnOtherError();
+    }
+
+    private void sleepBeforeRetry(StructuredOutputOptions options) {
+        if (options.retryBackoffMillis() == 0) {
+            return;
+        }
+        try {
+            retrySleeper.sleep(options.retryBackoffMillis());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new StructuredOutputException("Interrupted while waiting to retry structured output parsing", e);
+        }
     }
 
     private String buildRetrySystemPrompt(StructuredOutputOptions options, String systemPrompt, Exception lastError) {
@@ -176,6 +207,12 @@ public class StructuredOutputExecutor {
     }
 
     private record ParseResult<T>(T value, boolean repaired) {
+    }
+
+    @FunctionalInterface
+    interface RetrySleeper {
+
+        void sleep(long millis) throws InterruptedException;
     }
 
     private static final class ExecutionFailureTracker {

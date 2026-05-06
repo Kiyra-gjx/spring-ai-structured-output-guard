@@ -9,6 +9,9 @@ public class StructuredOutputGuardProperties {
     private boolean includeLastErrorInRetryPrompt = true;
     private boolean enableRepair = true;
     private int maxErrorMessageLength = 200;
+    private boolean retryOnStructuredOutputError = true;
+    private boolean retryOnOtherError = false;
+    private long retryBackoffMillis = 0;
     private final Metrics metrics = new Metrics();
 
     public int getMaxAttempts() {
@@ -41,6 +44,30 @@ public class StructuredOutputGuardProperties {
 
     public void setMaxErrorMessageLength(int maxErrorMessageLength) {
         this.maxErrorMessageLength = maxErrorMessageLength;
+    }
+
+    public boolean isRetryOnStructuredOutputError() {
+        return retryOnStructuredOutputError;
+    }
+
+    public void setRetryOnStructuredOutputError(boolean retryOnStructuredOutputError) {
+        this.retryOnStructuredOutputError = retryOnStructuredOutputError;
+    }
+
+    public boolean isRetryOnOtherError() {
+        return retryOnOtherError;
+    }
+
+    public void setRetryOnOtherError(boolean retryOnOtherError) {
+        this.retryOnOtherError = retryOnOtherError;
+    }
+
+    public long getRetryBackoffMillis() {
+        return retryBackoffMillis;
+    }
+
+    public void setRetryBackoffMillis(long retryBackoffMillis) {
+        this.retryBackoffMillis = retryBackoffMillis;
     }
 
     public Metrics getMetrics() {

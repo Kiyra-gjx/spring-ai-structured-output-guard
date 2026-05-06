@@ -52,6 +52,9 @@ public class StructuredOutputGuardAutoConfiguration {
             .includeLastErrorInRetryPrompt(properties.isIncludeLastErrorInRetryPrompt())
             .enableRepair(properties.isEnableRepair())
             .maxErrorMessageLength(properties.getMaxErrorMessageLength())
+            .retryOnStructuredOutputError(properties.isRetryOnStructuredOutputError())
+            .retryOnOtherError(properties.isRetryOnOtherError())
+            .retryBackoffMillis(properties.getRetryBackoffMillis())
             .build();
         return new StructuredOutputExecutor(
             options,

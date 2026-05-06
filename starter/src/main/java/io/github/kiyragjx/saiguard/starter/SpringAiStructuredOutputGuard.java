@@ -79,6 +79,12 @@ public class SpringAiStructuredOutputGuard {
             .enableRepair(valueOrDefault(callOptions.enableRepair(), defaults.enableRepair()))
             .maxErrorMessageLength(valueOrDefault(callOptions.maxErrorMessageLength(), defaults.maxErrorMessageLength()))
             .strictJsonInstruction(valueOrDefault(callOptions.strictJsonInstruction(), defaults.strictJsonInstruction()))
+            .retryOnStructuredOutputError(valueOrDefault(
+                callOptions.retryOnStructuredOutputError(),
+                defaults.retryOnStructuredOutputError()
+            ))
+            .retryOnOtherError(valueOrDefault(callOptions.retryOnOtherError(), defaults.retryOnOtherError()))
+            .retryBackoffMillis(valueOrDefault(callOptions.retryBackoffMillis(), defaults.retryBackoffMillis()))
             .build();
     }
 
@@ -91,6 +97,10 @@ public class SpringAiStructuredOutputGuard {
     }
 
     private String valueOrDefault(String value, String defaultValue) {
+        return value == null ? defaultValue : value;
+    }
+
+    private long valueOrDefault(Long value, long defaultValue) {
         return value == null ? defaultValue : value;
     }
 }
