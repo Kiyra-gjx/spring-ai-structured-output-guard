@@ -5,7 +5,10 @@ public record StructuredOutputOptions(
     boolean includeLastErrorInRetryPrompt,
     boolean enableRepair,
     int maxErrorMessageLength,
-    String strictJsonInstruction
+    String strictJsonInstruction,
+    boolean retryOnStructuredOutputError,
+    boolean retryOnOtherError,
+    long retryBackoffMillis
 ) {
 
     private static final String DEFAULT_STRICT_JSON_INSTRUCTION = """
@@ -23,6 +26,7 @@ public record StructuredOutputOptions(
         strictJsonInstruction = (strictJsonInstruction == null || strictJsonInstruction.isBlank())
             ? DEFAULT_STRICT_JSON_INSTRUCTION
             : strictJsonInstruction.trim();
+        retryBackoffMillis = Math.max(0, retryBackoffMillis);
     }
 
     public static StructuredOutputOptions defaults() {
@@ -39,6 +43,9 @@ public record StructuredOutputOptions(
         private boolean enableRepair = true;
         private int maxErrorMessageLength = 200;
         private String strictJsonInstruction = DEFAULT_STRICT_JSON_INSTRUCTION;
+        private boolean retryOnStructuredOutputError = true;
+        private boolean retryOnOtherError = false;
+        private long retryBackoffMillis = 0;
 
         public Builder maxAttempts(int maxAttempts) {
             this.maxAttempts = maxAttempts;
@@ -65,15 +72,32 @@ public record StructuredOutputOptions(
             return this;
         }
 
+        public Builder retryOnStructuredOutputError(boolean retryOnStructuredOutputError) {
+            this.retryOnStructuredOutputError = retryOnStructuredOutputError;
+            return this;
+        }
+
+        public Builder retryOnOtherError(boolean retryOnOtherError) {
+            this.retryOnOtherError = retryOnOtherError;
+            return this;
+        }
+
+        public Builder retryBackoffMillis(long retryBackoffMillis) {
+            this.retryBackoffMillis = retryBackoffMillis;
+            return this;
+        }
+
         public StructuredOutputOptions build() {
             return new StructuredOutputOptions(
                 maxAttempts,
                 includeLastErrorInRetryPrompt,
                 enableRepair,
                 maxErrorMessageLength,
-                strictJsonInstruction
+                strictJsonInstruction,
+                retryOnStructuredOutputError,
+                retryOnOtherError,
+                retryBackoffMillis
             );
         }
     }
 }
-

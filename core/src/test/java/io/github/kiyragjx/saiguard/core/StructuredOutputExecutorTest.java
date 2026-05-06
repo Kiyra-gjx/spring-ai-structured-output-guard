@@ -78,6 +78,152 @@ class StructuredOutputExecutorTest {
     }
 
     @Test
+    void shouldFailFastWhenStructuredOutputRetriesAreDisabled() {
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder()
+                .maxAttempts(3)
+                .enableRepair(false)
+                .retryOnStructuredOutputError(false)
+                .build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer()
+        );
+        AtomicInteger attempts = new AtomicInteger();
+
+        StructuredOutputException exception = assertThrows(StructuredOutputException.class, () -> executor.execute(
+            StructuredOutputExecution.<String>builder()
+                .systemPrompt("Return JSON")
+                .userPrompt("hi")
+                .responder((systemPrompt, userPrompt) -> {
+                    attempts.incrementAndGet();
+                    return "{\"value\":\"ok\"";
+                })
+                .parser(raw -> {
+                    throw new IllegalArgumentException("unexpected end-of-input");
+                })
+                .build()));
+
+        assertEquals(1, attempts.get());
+        assertEquals(1, exception.attemptCount());
+        assertEquals("structured_output", exception.errorType());
+    }
+
+    @Test
+    void shouldRetryOtherErrorsWhenEnabled() {
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder()
+                .maxAttempts(2)
+                .retryOnOtherError(true)
+                .build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer()
+        );
+        AtomicInteger attempts = new AtomicInteger();
+
+        String result = executor.execute(StructuredOutputExecution.<String>builder()
+            .systemPrompt("Return JSON")
+            .userPrompt("hi")
+            .responder((systemPrompt, userPrompt) -> {
+                if (attempts.incrementAndGet() == 1) {
+                    throw new IllegalStateException("provider timeout");
+                }
+                return "{\"value\":\"ok\"}";
+            })
+            .parser(raw -> raw)
+            .build());
+
+        assertEquals("{\"value\":\"ok\"}", result);
+        assertEquals(2, attempts.get());
+    }
+
+    @Test
+    void shouldWaitBeforeRetryWhenBackoffIsConfigured() {
+        List<Long> sleeps = new ArrayList<>();
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder()
+                .maxAttempts(2)
+                .enableRepair(false)
+                .retryBackoffMillis(25)
+                .build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer(),
+            null,
+            sleeps::add
+        );
+        AtomicInteger attempts = new AtomicInteger();
+
+        String result = executor.execute(StructuredOutputExecution.<String>builder()
+            .systemPrompt("Return JSON")
+            .userPrompt("hi")
+            .responder((systemPrompt, userPrompt) -> {
+                if (attempts.incrementAndGet() == 1) {
+                    return "{\"value\":\"ok\"";
+                }
+                return "{\"value\":\"ok\"}";
+            })
+            .parser(raw -> {
+                if (!raw.endsWith("}")) {
+                    throw new IllegalArgumentException("unexpected end-of-input");
+                }
+                return raw;
+            })
+            .build());
+
+        assertEquals("{\"value\":\"ok\"}", result);
+        assertEquals(List.of(25L), sleeps);
+    }
+
+    @Test
+    void shouldExposeFailureContextWhenBackoffIsInterrupted() {
+        RecordingExecutionListener listener = new RecordingExecutionListener();
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder()
+                .maxAttempts(2)
+                .enableRepair(false)
+                .retryBackoffMillis(25)
+                .build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer(),
+            listener,
+            millis -> {
+                throw new InterruptedException("stop waiting");
+            }
+        );
+        AtomicInteger attempts = new AtomicInteger();
+        StructuredOutputException exception = null;
+
+        try {
+            exception = assertThrows(StructuredOutputException.class, () -> executor.execute(
+                StructuredOutputExecution.<String>builder()
+                    .systemPrompt("Return JSON")
+                    .userPrompt("hi")
+                    .logContext("resume-task")
+                    .responder((systemPrompt, userPrompt) -> {
+                        attempts.incrementAndGet();
+                        return "{\"value\":\"ok\"";
+                    })
+                    .parser(raw -> {
+                        throw new IllegalArgumentException("unexpected end-of-input");
+                    })
+                    .build()));
+            assertTrue(Thread.currentThread().isInterrupted());
+        } finally {
+            Thread.interrupted();
+        }
+
+        assertEquals(1, attempts.get());
+        assertEquals("Interrupted while waiting to retry structured output parsing", exception.getMessage());
+        assertTrue(exception.getCause() instanceof InterruptedException);
+        assertEquals(1, exception.attemptCount());
+        assertFalse(exception.repairAttempted());
+        assertFalse(exception.repairSucceeded());
+        assertEquals("other", exception.errorType());
+        assertEquals(1, exception.getSuppressed().length);
+        assertEquals("unexpected end-of-input", exception.getSuppressed()[0].getMessage());
+        assertEquals(List.of("failure:resume-task:1:other"), listener.events);
+    }
+
+    @Test
     void shouldUseCallOptionsWithoutMutatingDefaultOptions() {
         StructuredOutputExecutor executor = new StructuredOutputExecutor(
             StructuredOutputOptions.builder().maxAttempts(1).build(),
@@ -313,6 +459,31 @@ class StructuredOutputExecutorTest {
         assertEquals(1, exception.attemptCount());
         assertFalse(exception.repairAttempted());
         assertFalse(exception.repairSucceeded());
+        assertEquals("other", exception.errorType());
+    }
+
+    @Test
+    void shouldNotRetryOtherErrorsByDefault() {
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder().maxAttempts(3).build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer()
+        );
+        AtomicInteger attempts = new AtomicInteger();
+
+        StructuredOutputException exception = assertThrows(StructuredOutputException.class, () -> executor.execute(
+            StructuredOutputExecution.<String>builder()
+                .systemPrompt("Return JSON")
+                .userPrompt("hi")
+                .responder((systemPrompt, userPrompt) -> {
+                    attempts.incrementAndGet();
+                    throw new IllegalStateException("provider timeout");
+                })
+                .parser(raw -> raw)
+                .build()));
+
+        assertEquals(1, attempts.get());
+        assertEquals(1, exception.attemptCount());
         assertEquals("other", exception.errorType());
     }
 

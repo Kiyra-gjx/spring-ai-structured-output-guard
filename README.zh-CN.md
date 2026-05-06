@@ -107,6 +107,9 @@ spring:
         enable-repair: true
         include-last-error-in-retry-prompt: true
         max-error-message-length: 200
+        retry-on-structured-output-error: true
+        retry-on-other-error: false
+        retry-backoff-millis: 0
         metrics:
           enabled: true
 ```
@@ -117,6 +120,9 @@ spring:
 | `spring.ai.structured-output.guard.enable-repair` | `true` | 是否在重试前尝试轻量 JSON 修复 |
 | `spring.ai.structured-output.guard.include-last-error-in-retry-prompt` | `true` | 是否把上一次解析错误摘要带入重试提示 |
 | `spring.ai.structured-output.guard.max-error-message-length` | `200` | 限制重试提示中错误消息的最大长度 |
+| `spring.ai.structured-output.guard.retry-on-structured-output-error` | `true` | 当错误被分类为结构化输出解析失败且仍有剩余尝试次数时是否重试 |
+| `spring.ai.structured-output.guard.retry-on-other-error` | `false` | 当错误未被分类为结构化输出解析失败时是否重试 |
+| `spring.ai.structured-output.guard.retry-backoff-millis` | `0` | 每次重试前的固定等待时间；`0` 表示不等待 |
 | `spring.ai.structured-output.guard.metrics.enabled` | `true` | 当存在 `MeterRegistry` Bean 时启用 Micrometer 监听器 |
 
 ### 单次调用覆盖
@@ -134,11 +140,14 @@ ResumeSummary summary = outputGuard.call(
         .maxAttempts(1)
         .enableRepair(false)
         .includeLastErrorInRetryPrompt(false)
+        .retryOnStructuredOutputError(false)
         .build()
 );
 ```
 
 覆盖优先级是：单次调用配置 > starter 全局配置 > core 默认值。它适合低延迟路径、必须 fail-fast 的调用，或者本地 JSON repair 比直接报错风险更高的提示。
+
+除非生产流量已经证明有明确需求，否则 retry 策略应保持简单。`retry-on-other-error` 默认关闭，因为供应商不可用、鉴权错误和应用异常通常应由独立机制处理。`retry-backoff-millis` 只是一个小的固定等待，不是复杂 resilience 框架的替代品。
 
 ## 🔧 修复策略
 

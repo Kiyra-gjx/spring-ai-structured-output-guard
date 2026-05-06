@@ -7,11 +7,14 @@ public record StructuredOutputCallOptions(
     Boolean includeLastErrorInRetryPrompt,
     Boolean enableRepair,
     Integer maxErrorMessageLength,
-    String strictJsonInstruction
+    String strictJsonInstruction,
+    Boolean retryOnStructuredOutputError,
+    Boolean retryOnOtherError,
+    Long retryBackoffMillis
 ) {
 
     public StructuredOutputCallOptions(String logContext, String failureMessage) {
-        this(logContext, failureMessage, null, null, null, null, null);
+        this(logContext, failureMessage, null, null, null, null, null, null, null, null);
     }
 
     public static StructuredOutputCallOptions defaults() {
@@ -30,6 +33,9 @@ public record StructuredOutputCallOptions(
         private Boolean enableRepair;
         private Integer maxErrorMessageLength;
         private String strictJsonInstruction;
+        private Boolean retryOnStructuredOutputError;
+        private Boolean retryOnOtherError;
+        private Long retryBackoffMillis;
 
         public Builder logContext(String logContext) {
             this.logContext = logContext;
@@ -66,6 +72,21 @@ public record StructuredOutputCallOptions(
             return this;
         }
 
+        public Builder retryOnStructuredOutputError(Boolean retryOnStructuredOutputError) {
+            this.retryOnStructuredOutputError = retryOnStructuredOutputError;
+            return this;
+        }
+
+        public Builder retryOnOtherError(Boolean retryOnOtherError) {
+            this.retryOnOtherError = retryOnOtherError;
+            return this;
+        }
+
+        public Builder retryBackoffMillis(Long retryBackoffMillis) {
+            this.retryBackoffMillis = retryBackoffMillis;
+            return this;
+        }
+
         public StructuredOutputCallOptions build() {
             return new StructuredOutputCallOptions(
                 logContext,
@@ -74,7 +95,10 @@ public record StructuredOutputCallOptions(
                 includeLastErrorInRetryPrompt,
                 enableRepair,
                 maxErrorMessageLength,
-                strictJsonInstruction
+                strictJsonInstruction,
+                retryOnStructuredOutputError,
+                retryOnOtherError,
+                retryBackoffMillis
             );
         }
     }

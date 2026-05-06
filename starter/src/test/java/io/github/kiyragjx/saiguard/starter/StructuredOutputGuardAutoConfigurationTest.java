@@ -44,6 +44,9 @@ class StructuredOutputGuardAutoConfigurationTest {
             assertThat(options.includeLastErrorInRetryPrompt()).isTrue();
             assertThat(options.enableRepair()).isTrue();
             assertThat(options.maxErrorMessageLength()).isEqualTo(200);
+            assertThat(options.retryOnStructuredOutputError()).isTrue();
+            assertThat(options.retryOnOtherError()).isFalse();
+            assertThat(options.retryBackoffMillis()).isZero();
         });
     }
 
@@ -54,7 +57,10 @@ class StructuredOutputGuardAutoConfigurationTest {
                 "spring.ai.structured-output.guard.max-attempts=3",
                 "spring.ai.structured-output.guard.include-last-error-in-retry-prompt=false",
                 "spring.ai.structured-output.guard.enable-repair=false",
-                "spring.ai.structured-output.guard.max-error-message-length=512"
+                "spring.ai.structured-output.guard.max-error-message-length=512",
+                "spring.ai.structured-output.guard.retry-on-structured-output-error=false",
+                "spring.ai.structured-output.guard.retry-on-other-error=true",
+                "spring.ai.structured-output.guard.retry-backoff-millis=75"
             )
             .run(context -> {
                 StructuredOutputExecutor executor = context.getBean(StructuredOutputExecutor.class);
@@ -65,6 +71,9 @@ class StructuredOutputGuardAutoConfigurationTest {
                 assertThat(options.includeLastErrorInRetryPrompt()).isFalse();
                 assertThat(options.enableRepair()).isFalse();
                 assertThat(options.maxErrorMessageLength()).isEqualTo(512);
+                assertThat(options.retryOnStructuredOutputError()).isFalse();
+                assertThat(options.retryOnOtherError()).isTrue();
+                assertThat(options.retryBackoffMillis()).isEqualTo(75);
                 assertThat(context.getBean(StructuredOutputGuardProperties.class).getMetrics().isEnabled()).isTrue();
             });
     }
@@ -78,6 +87,9 @@ class StructuredOutputGuardAutoConfigurationTest {
                 .enableRepair(true)
                 .maxErrorMessageLength(512)
                 .strictJsonInstruction("Use strict global JSON.")
+                .retryOnStructuredOutputError(true)
+                .retryOnOtherError(false)
+                .retryBackoffMillis(25)
                 .build()
         );
         SpringAiStructuredOutputGuard guard = new SpringAiStructuredOutputGuard(executor);
@@ -90,6 +102,9 @@ class StructuredOutputGuardAutoConfigurationTest {
                 .failureMessage("single failure")
                 .maxAttempts(1)
                 .enableRepair(false)
+                .retryOnStructuredOutputError(false)
+                .retryOnOtherError(true)
+                .retryBackoffMillis(100L)
                 .build());
 
         assertThat(result).isSameAs(expected);
@@ -100,8 +115,12 @@ class StructuredOutputGuardAutoConfigurationTest {
         assertThat(executor.callOptions.includeLastErrorInRetryPrompt()).isFalse();
         assertThat(executor.callOptions.maxErrorMessageLength()).isEqualTo(512);
         assertThat(executor.callOptions.strictJsonInstruction()).isEqualTo("Use strict global JSON.");
+        assertThat(executor.callOptions.retryOnStructuredOutputError()).isFalse();
+        assertThat(executor.callOptions.retryOnOtherError()).isTrue();
+        assertThat(executor.callOptions.retryBackoffMillis()).isEqualTo(100);
         assertThat(executor.defaultOptions().maxAttempts()).isEqualTo(3);
         assertThat(executor.defaultOptions().enableRepair()).isTrue();
+        assertThat(executor.defaultOptions().retryBackoffMillis()).isEqualTo(25);
     }
 
     @Test
@@ -113,6 +132,9 @@ class StructuredOutputGuardAutoConfigurationTest {
                 .enableRepair(false)
                 .maxErrorMessageLength(300)
                 .strictJsonInstruction("Use global JSON only.")
+                .retryOnStructuredOutputError(false)
+                .retryOnOtherError(true)
+                .retryBackoffMillis(40)
                 .build()
         );
         SpringAiStructuredOutputGuard guard = new SpringAiStructuredOutputGuard(executor);
@@ -128,6 +150,9 @@ class StructuredOutputGuardAutoConfigurationTest {
         assertThat(executor.callOptions.enableRepair()).isFalse();
         assertThat(executor.callOptions.maxErrorMessageLength()).isEqualTo(300);
         assertThat(executor.callOptions.strictJsonInstruction()).isEqualTo("Use global JSON only.");
+        assertThat(executor.callOptions.retryOnStructuredOutputError()).isFalse();
+        assertThat(executor.callOptions.retryOnOtherError()).isTrue();
+        assertThat(executor.callOptions.retryBackoffMillis()).isEqualTo(40);
     }
 
     @Test
