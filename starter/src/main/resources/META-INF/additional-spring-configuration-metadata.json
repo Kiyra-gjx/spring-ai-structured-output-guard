@@ -1,0 +1,52 @@
+{
+  "properties": [
+    {
+      "name": "spring.ai.structured-output.guard.max-attempts",
+      "type": "java.lang.Integer",
+      "description": "Total attempts including the first call.",
+      "defaultValue": 2
+    },
+    {
+      "name": "spring.ai.structured-output.guard.enable-repair",
+      "type": "java.lang.Boolean",
+      "description": "Enables lightweight JSON repair before retrying.",
+      "defaultValue": true
+    },
+    {
+      "name": "spring.ai.structured-output.guard.include-last-error-in-retry-prompt",
+      "type": "java.lang.Boolean",
+      "description": "Adds the sanitized parse error to retry instructions.",
+      "defaultValue": true
+    },
+    {
+      "name": "spring.ai.structured-output.guard.max-error-message-length",
+      "type": "java.lang.Integer",
+      "description": "Truncates parse errors included in retry prompts.",
+      "defaultValue": 200
+    },
+    {
+      "name": "spring.ai.structured-output.guard.retry-on-structured-output-error",
+      "type": "java.lang.Boolean",
+      "description": "Retries errors classified as structured-output parsing failures while attempts remain.",
+      "defaultValue": true
+    },
+    {
+      "name": "spring.ai.structured-output.guard.retry-on-other-error",
+      "type": "java.lang.Boolean",
+      "description": "Retries errors that are not classified as structured-output parsing failures.",
+      "defaultValue": false
+    },
+    {
+      "name": "spring.ai.structured-output.guard.retry-backoff-millis",
+      "type": "java.lang.Long",
+      "description": "Fixed wait before each retry; 0 means no wait.",
+      "defaultValue": 0
+    },
+    {
+      "name": "spring.ai.structured-output.guard.metrics.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enables the Micrometer listener when a MeterRegistry bean is present.",
+      "defaultValue": true
+    }
+  ]
+}
