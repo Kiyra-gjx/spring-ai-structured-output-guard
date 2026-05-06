@@ -95,6 +95,9 @@ spring:
         enable-repair: true
         include-last-error-in-retry-prompt: true
         max-error-message-length: 200
+        retry-on-structured-output-error: true
+        retry-on-other-error: false
+        retry-backoff-millis: 0
         metrics:
           enabled: true
 ```
@@ -105,6 +108,9 @@ spring:
 | `spring.ai.structured-output.guard.enable-repair` | `true` | Activa la reparación ligera de JSON antes del reintento |
 | `spring.ai.structured-output.guard.include-last-error-in-retry-prompt` | `true` | Añade el error resumido de parseo al prompt de reintento |
 | `spring.ai.structured-output.guard.max-error-message-length` | `200` | Limita la longitud del error incluido en el prompt de reintento |
+| `spring.ai.structured-output.guard.retry-on-structured-output-error` | `true` | Reintenta errores clasificados como fallos de parseo de structured output mientras queden intentos |
+| `spring.ai.structured-output.guard.retry-on-other-error` | `false` | Reintenta errores que no están clasificados como fallos de parseo de structured output |
+| `spring.ai.structured-output.guard.retry-backoff-millis` | `0` | Espera fija antes de cada reintento; `0` significa sin espera |
 | `spring.ai.structured-output.guard.metrics.enabled` | `true` | Activa el listener de Micrometer cuando existe un Bean `MeterRegistry` |
 
 ### Overrides por llamada
@@ -122,11 +128,14 @@ ResumeSummary summary = outputGuard.call(
         .maxAttempts(1)
         .enableRepair(false)
         .includeLastErrorInRetryPrompt(false)
+        .retryOnStructuredOutputError(false)
         .build()
 );
 ```
 
 La prioridad de override es: opciones por llamada > configuración global del starter > valores por defecto del core. Es útil para rutas de baja latencia, llamadas que deben fallar rápido o prompts donde la reparación local de JSON sería más arriesgada que devolver un error.
+
+Mantén simple la política de retry salvo que el tráfico de producción muestre una necesidad concreta. `retry-on-other-error` está desactivado por defecto porque caídas del proveedor, errores de autenticación y excepciones de aplicación suelen requerir manejo separado. `retry-backoff-millis` es una pequeña espera fija, no un reemplazo de un framework de resiliencia complejo.
 
 ## 🔧 Estrategia de reparación
 

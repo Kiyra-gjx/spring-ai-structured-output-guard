@@ -95,6 +95,9 @@ spring:
         enable-repair: true
         include-last-error-in-retry-prompt: true
         max-error-message-length: 200
+        retry-on-structured-output-error: true
+        retry-on-other-error: false
+        retry-backoff-millis: 0
         metrics:
           enabled: true
 ```
@@ -105,6 +108,9 @@ spring:
 | `spring.ai.structured-output.guard.enable-repair` | `true` | 再試行前に軽量 JSON 修復を有効にする |
 | `spring.ai.structured-output.guard.include-last-error-in-retry-prompt` | `true` | 前回の解析エラー要約を再試行プロンプトに含める |
 | `spring.ai.structured-output.guard.max-error-message-length` | `200` | 再試行プロンプトに含めるエラーメッセージ長を制限する |
+| `spring.ai.structured-output.guard.retry-on-structured-output-error` | `true` | structured output の解析失敗に分類されたエラーを、残り試行回数がある間だけ再試行する |
+| `spring.ai.structured-output.guard.retry-on-other-error` | `false` | structured output の解析失敗に分類されないエラーを再試行する |
+| `spring.ai.structured-output.guard.retry-backoff-millis` | `0` | 各再試行前の固定待機時間。`0` は待機なし |
 | `spring.ai.structured-output.guard.metrics.enabled` | `true` | `MeterRegistry` Bean がある場合に Micrometer リスナーを有効にする |
 
 ### 呼び出しごとの上書き
@@ -122,11 +128,14 @@ ResumeSummary summary = outputGuard.call(
         .maxAttempts(1)
         .enableRepair(false)
         .includeLastErrorInRetryPrompt(false)
+        .retryOnStructuredOutputError(false)
         .build()
 );
 ```
 
 優先順位は、呼び出しごとの設定 > starter のグローバル設定 > core のデフォルト値です。低レイテンシ経路、fail-fast が必要な呼び出し、またはローカル JSON repair よりエラーとして返す方が安全なプロンプトで役立ちます。
+
+本番トラフィックで具体的な必要性が見えるまでは、retry ポリシーは単純に保ってください。`retry-on-other-error` はデフォルトで無効です。プロバイダー障害、認証エラー、アプリケーション例外は通常、別の仕組みで扱うべきだからです。`retry-backoff-millis` は小さな固定待機であり、複雑な resilience framework の代替ではありません。
 
 ## 🔧 修復ポリシー
 

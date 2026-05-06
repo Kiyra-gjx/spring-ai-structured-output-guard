@@ -5,13 +5,41 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("spring.ai.structured-output.guard")
 public class StructuredOutputGuardProperties {
 
+    /**
+     * Total attempts including the first call.
+     */
     private int maxAttempts = 2;
+
+    /**
+     * Adds the sanitized parse error to retry instructions.
+     */
     private boolean includeLastErrorInRetryPrompt = true;
+
+    /**
+     * Enables lightweight JSON repair before retrying.
+     */
     private boolean enableRepair = true;
+
+    /**
+     * Truncates parse errors included in retry prompts.
+     */
     private int maxErrorMessageLength = 200;
+
+    /**
+     * Retries errors classified as structured-output parsing failures while attempts remain.
+     */
     private boolean retryOnStructuredOutputError = true;
+
+    /**
+     * Retries errors that are not classified as structured-output parsing failures.
+     */
     private boolean retryOnOtherError = false;
+
+    /**
+     * Fixed wait before each retry; 0 means no wait.
+     */
     private long retryBackoffMillis = 0;
+
     private final Metrics metrics = new Metrics();
 
     public int getMaxAttempts() {
@@ -76,6 +104,9 @@ public class StructuredOutputGuardProperties {
 
     public static class Metrics {
 
+        /**
+         * Enables the Micrometer listener when a MeterRegistry bean is present.
+         */
         private boolean enabled = true;
 
         public boolean isEnabled() {
