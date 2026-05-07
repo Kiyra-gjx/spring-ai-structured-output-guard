@@ -7,17 +7,32 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * HTTP demo endpoint that calls Spring AI through the guard starter.
+ */
 @RestController
 public class DemoController {
 
     private final ChatClient chatClient;
     private final SpringAiStructuredOutputGuard outputGuard;
 
+    /**
+     * Creates the movie-review demo controller.
+     *
+     * @param chatClientBuilder builder used to create the chat client
+     * @param outputGuard structured-output guard facade
+     */
     public DemoController(ChatClient.Builder chatClientBuilder, SpringAiStructuredOutputGuard outputGuard) {
         this.chatClient = chatClientBuilder.build();
         this.outputGuard = outputGuard;
     }
 
+    /**
+     * Returns a guarded structured movie review.
+     *
+     * @param movie movie title to review
+     * @return structured movie review
+     */
     @GetMapping("/demo/movie-review")
     public MovieReview movieReview(@RequestParam(defaultValue = "Interstellar") String movie) {
         String systemPrompt = """
@@ -40,4 +55,3 @@ public class DemoController {
         );
     }
 }
-

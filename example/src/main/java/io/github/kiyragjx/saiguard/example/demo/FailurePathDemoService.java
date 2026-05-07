@@ -12,16 +12,29 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Runs local scripted scenarios that demonstrate repair, retry, and failure context behavior without an API key.
+ */
 @Service
 public class FailurePathDemoService {
 
     private final StructuredOutputExecutor executor;
     private final BeanOutputConverter<MovieReview> outputConverter = new BeanOutputConverter<>(MovieReview.class);
 
+    /**
+     * Creates the scripted demo service.
+     *
+     * @param executor structured-output executor configured by the starter
+     */
     public FailurePathDemoService(StructuredOutputExecutor executor) {
         this.executor = executor;
     }
 
+    /**
+     * Runs all scripted demo scenarios.
+     *
+     * @return combined scenario results
+     */
     public FailurePathDemoResult runAll() {
         return new FailurePathDemoResult(List.of(
             codeFenceRepair(),

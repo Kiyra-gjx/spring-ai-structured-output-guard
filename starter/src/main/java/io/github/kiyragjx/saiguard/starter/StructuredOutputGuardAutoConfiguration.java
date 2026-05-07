@@ -21,16 +21,36 @@ import org.springframework.context.annotation.Configuration;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Auto-configuration for the Spring AI structured-output guard starter.
+ */
 @AutoConfiguration
 @EnableConfigurationProperties(StructuredOutputGuardProperties.class)
 public class StructuredOutputGuardAutoConfiguration {
 
+    /**
+     * Creates auto-configuration.
+     */
+    public StructuredOutputGuardAutoConfiguration() {
+    }
+
+    /**
+     * Provides the default structured-output error classifier.
+     *
+     * @return default classifier
+     */
     @Bean
     @ConditionalOnMissingBean
     public StructuredOutputErrorClassifier structuredOutputErrorClassifier() {
         return new StructuredOutputErrorClassifier();
     }
 
+    /**
+     * Provides the default JSON repairer and appends ordered custom repair steps.
+     *
+     * @param repairSteps optional custom repair steps from the Spring context
+     * @return repairer with built-in steps followed by custom steps
+     */
     @Bean
     @ConditionalOnMissingBean
     public JsonRepairer jsonRepairer(ObjectProvider<JsonRepairStep> repairSteps) {
@@ -39,6 +59,15 @@ public class StructuredOutputGuardAutoConfiguration {
         return new JsonRepairer(steps);
     }
 
+    /**
+     * Provides the core structured-output executor configured from starter properties.
+     *
+     * @param properties bound starter properties
+     * @param errorClassifier classifier used for retry decisions
+     * @param jsonRepairer repairer used before retrying
+     * @param executionListeners optional execution listeners from the Spring context
+     * @return configured executor
+     */
     @Bean
     @ConditionalOnMissingBean
     public StructuredOutputExecutor structuredOutputExecutor(
@@ -64,6 +93,12 @@ public class StructuredOutputGuardAutoConfiguration {
         );
     }
 
+    /**
+     * Provides the Spring AI guard facade for application code.
+     *
+     * @param executor configured core executor
+     * @return guard facade
+     */
     @Bean
     @ConditionalOnMissingBean
     public SpringAiStructuredOutputGuard springAiStructuredOutputGuard(StructuredOutputExecutor executor) {

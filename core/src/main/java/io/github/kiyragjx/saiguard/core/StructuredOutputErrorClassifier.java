@@ -3,6 +3,12 @@ package io.github.kiyragjx.saiguard.core;
 import java.util.Locale;
 import java.util.Set;
 
+/**
+ * Heuristic classifier for errors that look like structured-output parsing failures.
+ * <p>
+ * The classifier checks the throwable chain for common JSON parser class names and message fragments. It is intentionally
+ * lightweight and is used only to decide retry policy boundaries.
+ */
 public class StructuredOutputErrorClassifier {
 
     private static final Set<String> KEYWORDS = Set.of(
@@ -20,6 +26,18 @@ public class StructuredOutputErrorClassifier {
         "not valid json"
     );
 
+    /**
+     * Creates a classifier with the built-in heuristics.
+     */
+    public StructuredOutputErrorClassifier() {
+    }
+
+    /**
+     * Returns whether a throwable looks like a structured-output parsing error.
+     *
+     * @param throwable throwable to classify; {@code null} returns {@code false}
+     * @return {@code true} when the throwable chain contains known JSON parsing signals
+     */
     public boolean isStructuredOutputError(Throwable throwable) {
         Throwable current = throwable;
         while (current != null) {
@@ -46,4 +64,3 @@ public class StructuredOutputErrorClassifier {
         return false;
     }
 }
-

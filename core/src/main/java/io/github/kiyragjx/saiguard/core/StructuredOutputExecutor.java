@@ -3,6 +3,13 @@ package io.github.kiyragjx.saiguard.core;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Executes a structured-output call with parsing, optional local JSON repair, retry, and failure context enrichment.
+ * <p>
+ * This is the main core API when you integrate the library without the Spring Boot starter. Callers provide a
+ * {@link StructuredOutputExecution} containing the model call and parser, and the executor applies
+ * {@link StructuredOutputOptions} consistently around that workflow.
+ */
 public class StructuredOutputExecutor {
 
     private static final Logger log = LoggerFactory.getLogger(StructuredOutputExecutor.class);
@@ -15,10 +22,21 @@ public class StructuredOutputExecutor {
     private final StructuredOutputExecutionListener executionListener;
     private final RetrySleeper retrySleeper;
 
+    /**
+     * Creates an executor with default options, the default structured-output error classifier, the default JSON
+     * repairer, and no execution listener.
+     */
     public StructuredOutputExecutor() {
         this(StructuredOutputOptions.defaults(), new StructuredOutputErrorClassifier(), new JsonRepairer(), NO_OP_LISTENER);
     }
 
+    /**
+     * Creates an executor with custom defaults and extension points.
+     *
+     * @param options default execution options; if later per-call options are omitted, these values are used
+     * @param errorClassifier classifier used to decide whether an exception is retryable as a structured-output error
+     * @param jsonRepairer repairer used when parsing fails and repair is enabled
+     */
     public StructuredOutputExecutor(
         StructuredOutputOptions options,
         StructuredOutputErrorClassifier errorClassifier,
@@ -27,6 +45,15 @@ public class StructuredOutputExecutor {
         this(options, errorClassifier, jsonRepairer, NO_OP_LISTENER);
     }
 
+    /**
+     * Creates an executor with custom defaults, extension points, and lifecycle observation.
+     *
+     * @param options default execution options; if later per-call options are omitted, these values are used
+     * @param errorClassifier classifier used to decide whether an exception is retryable as a structured-output error
+     * @param jsonRepairer repairer used when parsing fails and repair is enabled
+     * @param executionListener optional listener for repair, retry, success, and failure events; {@code null} disables
+     * listener callbacks
+     */
     public StructuredOutputExecutor(
         StructuredOutputOptions options,
         StructuredOutputErrorClassifier errorClassifier,
@@ -50,14 +77,44 @@ public class StructuredOutputExecutor {
         this.retrySleeper = retrySleeper == null ? Thread::sleep : retrySleeper;
     }
 
+    /**
+     * Returns the options configured on this executor.
+     * <p>
+     * Starter per-call overrides are merged against this value, and direct core users can inspect it before deciding
+     * whether to pass call-specific options to {@link #execute(StructuredOutputExecution, StructuredOutputOptions)}.
+     *
+     * @return the executor-level default options
+     */
     public StructuredOutputOptions defaultOptions() {
         return options;
     }
 
+    /**
+     * Executes a structured-output workflow using the executor default options.
+     *
+     * @param execution model call and parser definition; must not be {@code null}
+     * @param <T> parsed result type
+     * @return parsed result from the first successful raw or repaired response
+     * @throws StructuredOutputException when all configured attempts fail
+     */
     public <T> T execute(StructuredOutputExecution<T> execution) {
         return execute(execution, options);
     }
 
+    /**
+     * Executes a structured-output workflow with optional call-specific options.
+     * <p>
+     * Each attempt calls the execution responder, parses the raw content, optionally tries local JSON repair after a
+     * parse failure, and then retries only when the configured retry policy allows it. Final failures are wrapped in
+     * {@link StructuredOutputException} with {@link StructuredOutputFailureContext}.
+     *
+     * @param execution model call and parser definition; must not be {@code null}
+     * @param callOptions options for this call; {@code null} falls back to {@link #defaultOptions()}
+     * @param <T> parsed result type
+     * @return parsed result from the first successful raw or repaired response
+     * @throws StructuredOutputException when all configured attempts fail, repair fails to recover, or retry backoff is
+     * interrupted
+     */
     public <T> T execute(StructuredOutputExecution<T> execution, StructuredOutputOptions callOptions) {
         StructuredOutputOptions effectiveOptions = callOptions == null ? options : callOptions;
         Exception lastError = null;
