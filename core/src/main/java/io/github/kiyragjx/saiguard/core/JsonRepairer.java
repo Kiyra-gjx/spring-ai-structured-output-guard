@@ -3,6 +3,13 @@ package io.github.kiyragjx.saiguard.core;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Applies an ordered chain of conservative JSON repair steps.
+ * <p>
+ * The default steps are intended for low-risk formatting noise such as Markdown code fences, wrapper prose, smart
+ * quotes, trailing commas, and raw control characters inside JSON strings. This class is an extension point for direct
+ * core users and Spring users who provide a custom {@code JsonRepairer} bean.
+ */
 public class JsonRepairer {
 
     private static final List<JsonRepairStep> DEFAULT_STEPS = List.of(
@@ -15,23 +22,55 @@ public class JsonRepairer {
 
     private final List<JsonRepairStep> steps;
 
+    /**
+     * Creates a repairer with the built-in conservative step chain.
+     */
     public JsonRepairer() {
         this(DEFAULT_STEPS);
     }
 
+    /**
+     * Creates a repairer with a custom ordered step chain.
+     *
+     * @param steps repair steps to run in order; must not be {@code null} and must not contain {@code null} entries
+     */
     public JsonRepairer(List<JsonRepairStep> steps) {
         Objects.requireNonNull(steps, "steps cannot be null");
         this.steps = List.copyOf(steps);
     }
 
+    /**
+     * Returns the built-in conservative repair steps.
+     * <p>
+     * The returned list is immutable and safe to copy when building a custom chain.
+     *
+     * @return built-in repair steps in execution order
+     */
     public static List<JsonRepairStep> defaultSteps() {
         return DEFAULT_STEPS;
     }
 
+    /**
+     * Repairs content with no observation callback.
+     *
+     * @param rawContent content returned by the model; {@code null} or blank content is returned unchanged
+     * @return repaired candidate, or the original value when there is nothing to repair
+     */
     public String repair(String rawContent) {
         return repair(rawContent, null);
     }
 
+    /**
+     * Repairs content and optionally observes step failures.
+     * <p>
+     * If a step returns {@code null} or throws a runtime exception, repair fails fast with an
+     * {@link IllegalStateException}. The full payload is not included in the generated exception message.
+     *
+     * @param rawContent content returned by the model; {@code null} or blank content is returned unchanged
+     * @param observationListener optional listener for step failures; may be {@code null}
+     * @return repaired candidate, or the original value when there is nothing to repair
+     * @throws IllegalStateException when a repair step fails or returns {@code null}
+     */
     public String repair(String rawContent, JsonRepairObservationListener observationListener) {
         if (rawContent == null || rawContent.isBlank()) {
             return rawContent;

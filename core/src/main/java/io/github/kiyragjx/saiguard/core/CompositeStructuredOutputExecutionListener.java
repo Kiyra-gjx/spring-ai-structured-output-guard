@@ -7,12 +7,23 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
+/**
+ * Dispatches execution lifecycle events to multiple listeners.
+ * <p>
+ * Listener failures are isolated: a runtime exception from one listener is logged and does not prevent later listeners
+ * from receiving the same event.
+ */
 public class CompositeStructuredOutputExecutionListener implements StructuredOutputExecutionListener {
 
     private static final Logger log = LoggerFactory.getLogger(CompositeStructuredOutputExecutionListener.class);
 
     private final List<StructuredOutputExecutionListener> listeners;
 
+    /**
+     * Creates a composite listener.
+     *
+     * @param listeners listeners to notify in order; must not be {@code null}
+     */
     public CompositeStructuredOutputExecutionListener(List<StructuredOutputExecutionListener> listeners) {
         Objects.requireNonNull(listeners, "listeners cannot be null");
         this.listeners = List.copyOf(listeners);
