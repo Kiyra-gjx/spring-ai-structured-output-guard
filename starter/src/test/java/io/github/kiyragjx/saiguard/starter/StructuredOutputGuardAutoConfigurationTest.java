@@ -51,6 +51,35 @@ class StructuredOutputGuardAutoConfigurationTest {
     }
 
     @Test
+    void shouldDefaultFailureSnippetsToDisabled() {
+        contextRunner.run(context -> {
+            StructuredOutputGuardProperties properties = context.getBean(StructuredOutputGuardProperties.class);
+            assertThat(properties.getFailureSnippets().isEnabled()).isFalse();
+            assertThat(properties.getFailureSnippets().getMaxLength()).isEqualTo(500);
+
+            StructuredOutputExecutor executor = context.getBean(StructuredOutputExecutor.class);
+            StructuredOutputOptions options = (StructuredOutputOptions) ReflectionTestUtils.getField(executor, "options");
+            assertThat(options.failureSnippetsEnabled()).isFalse();
+            assertThat(options.failureSnippetsMaxLength()).isEqualTo(500);
+        });
+    }
+
+    @Test
+    void shouldBindFailureSnippetProperties() {
+        contextRunner
+            .withPropertyValues(
+                "spring.ai.structured-output.guard.failure-snippets.enabled=true",
+                "spring.ai.structured-output.guard.failure-snippets.max-length=256"
+            )
+            .run(context -> {
+                StructuredOutputExecutor executor = context.getBean(StructuredOutputExecutor.class);
+                StructuredOutputOptions options = (StructuredOutputOptions) ReflectionTestUtils.getField(executor, "options");
+                assertThat(options.failureSnippetsEnabled()).isTrue();
+                assertThat(options.failureSnippetsMaxLength()).isEqualTo(256);
+            });
+    }
+
+    @Test
     void shouldBindPropertiesIntoExecutorOptions() {
         contextRunner
             .withPropertyValues(
@@ -90,6 +119,8 @@ class StructuredOutputGuardAutoConfigurationTest {
                 .retryOnStructuredOutputError(true)
                 .retryOnOtherError(false)
                 .retryBackoffMillis(25)
+                .failureSnippetsEnabled(true)
+                .failureSnippetsMaxLength(200)
                 .build()
         );
         SpringAiStructuredOutputGuard guard = new SpringAiStructuredOutputGuard(executor);
@@ -105,6 +136,7 @@ class StructuredOutputGuardAutoConfigurationTest {
                 .retryOnStructuredOutputError(false)
                 .retryOnOtherError(true)
                 .retryBackoffMillis(100L)
+                .failureSnippetsEnabled(false)
                 .build());
 
         assertThat(result).isSameAs(expected);
@@ -121,6 +153,8 @@ class StructuredOutputGuardAutoConfigurationTest {
         assertThat(executor.defaultOptions().maxAttempts()).isEqualTo(3);
         assertThat(executor.defaultOptions().enableRepair()).isTrue();
         assertThat(executor.defaultOptions().retryBackoffMillis()).isEqualTo(25);
+        assertThat(executor.callOptions.failureSnippetsEnabled()).isFalse();
+        assertThat(executor.callOptions.failureSnippetsMaxLength()).isEqualTo(200); // inherited from global
     }
 
     @Test
