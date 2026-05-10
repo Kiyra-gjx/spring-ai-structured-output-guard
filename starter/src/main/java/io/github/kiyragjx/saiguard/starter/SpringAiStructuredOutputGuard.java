@@ -144,6 +144,14 @@ public class SpringAiStructuredOutputGuard {
             ))
             .retryOnOtherError(valueOrDefault(callOptions.retryOnOtherError(), defaults.retryOnOtherError()))
             .retryBackoffMillis(valueOrDefault(callOptions.retryBackoffMillis(), defaults.retryBackoffMillis()))
+            .failureSnippetsEnabled(valueOrDefault(
+                callOptions.failureSnippetsEnabled(),
+                defaults.failureSnippetsEnabled()
+            ))
+            .failureSnippetsMaxLength(valueOrDefault(
+                callOptions.failureSnippetsMaxLength(),
+                defaults.failureSnippetsMaxLength()
+            ))
             .build();
     }
 

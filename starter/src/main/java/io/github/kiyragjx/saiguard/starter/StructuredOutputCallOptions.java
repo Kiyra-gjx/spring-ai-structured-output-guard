@@ -20,6 +20,8 @@ package io.github.kiyragjx.saiguard.starter;
  * @param retryOnOtherError optional retry policy for non-structured-output errors; {@code null} inherits the global
  * value
  * @param retryBackoffMillis optional fixed wait before each retry; {@code null} inherits the global value
+ * @param failureSnippetsEnabled optional failure content snippet capture flag; {@code null} inherits the global value
+ * @param failureSnippetsMaxLength optional maximum snippet length; {@code null} inherits the global value
  */
 public record StructuredOutputCallOptions(
     String logContext,
@@ -31,7 +33,9 @@ public record StructuredOutputCallOptions(
     String strictJsonInstruction,
     Boolean retryOnStructuredOutputError,
     Boolean retryOnOtherError,
-    Long retryBackoffMillis
+    Long retryBackoffMillis,
+    Boolean failureSnippetsEnabled,
+    Integer failureSnippetsMaxLength
 ) {
 
     /**
@@ -41,7 +45,7 @@ public record StructuredOutputCallOptions(
      * @param failureMessage optional final exception message
      */
     public StructuredOutputCallOptions(String logContext, String failureMessage) {
-        this(logContext, failureMessage, null, null, null, null, null, null, null, null);
+        this(logContext, failureMessage, null, null, null, null, null, null, null, null, null, null);
     }
 
     /**
@@ -76,6 +80,8 @@ public record StructuredOutputCallOptions(
         private Boolean retryOnStructuredOutputError;
         private Boolean retryOnOtherError;
         private Long retryBackoffMillis;
+        private Boolean failureSnippetsEnabled;
+        private Integer failureSnippetsMaxLength;
 
         /**
          * Creates a builder initialized with blank metadata and inherited behavior settings.
@@ -194,6 +200,28 @@ public record StructuredOutputCallOptions(
         }
 
         /**
+         * Overrides whether failure content snippets are captured for this call.
+         *
+         * @param failureSnippetsEnabled override value, or {@code null} to inherit
+         * @return this builder
+         */
+        public Builder failureSnippetsEnabled(Boolean failureSnippetsEnabled) {
+            this.failureSnippetsEnabled = failureSnippetsEnabled;
+            return this;
+        }
+
+        /**
+         * Overrides the maximum snippet length for this call.
+         *
+         * @param failureSnippetsMaxLength override value, or {@code null} to inherit
+         * @return this builder
+         */
+        public Builder failureSnippetsMaxLength(Integer failureSnippetsMaxLength) {
+            this.failureSnippetsMaxLength = failureSnippetsMaxLength;
+            return this;
+        }
+
+        /**
          * Builds immutable call options.
          *
          * @return call options
@@ -209,7 +237,9 @@ public record StructuredOutputCallOptions(
                 strictJsonInstruction,
                 retryOnStructuredOutputError,
                 retryOnOtherError,
-                retryBackoffMillis
+                retryBackoffMillis,
+                failureSnippetsEnabled,
+                failureSnippetsMaxLength
             );
         }
     }
