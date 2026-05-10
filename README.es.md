@@ -112,6 +112,8 @@ spring:
 | `spring.ai.structured-output.guard.retry-on-other-error` | `false` | Reintenta errores que no están clasificados como fallos de parseo de structured output |
 | `spring.ai.structured-output.guard.retry-backoff-millis` | `0` | Espera fija antes de cada reintento; `0` significa sin espera |
 | `spring.ai.structured-output.guard.metrics.enabled` | `true` | Activa el listener de Micrometer cuando existe un Bean `MeterRegistry` |
+| `spring.ai.structured-output.guard.failure-snippets.enabled` | `false` | Captura contenido truncado (original y reparado) en el contexto final de la excepción |
+| `spring.ai.structured-output.guard.failure-snippets.max-length` | `500` | Longitud máxima de los fragmentos de contenido capturados |
 
 ### Overrides por llamada
 

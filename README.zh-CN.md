@@ -124,6 +124,8 @@ spring:
 | `spring.ai.structured-output.guard.retry-on-other-error` | `false` | 当错误未被分类为结构化输出解析失败时是否重试 |
 | `spring.ai.structured-output.guard.retry-backoff-millis` | `0` | 每次重试前的固定等待时间；`0` 表示不等待 |
 | `spring.ai.structured-output.guard.metrics.enabled` | `true` | 当存在 `MeterRegistry` Bean 时启用 Micrometer 监听器 |
+| `spring.ai.structured-output.guard.failure-snippets.enabled` | `false` | 在最终异常上下文中截断并捕获原始和修复后的内容片段 |
+| `spring.ai.structured-output.guard.failure-snippets.max-length` | `500` | 捕获内容片段的最大长度 |
 
 ### 单次调用覆盖
 

@@ -84,6 +84,8 @@ public class StructuredOutputGuardAutoConfiguration {
             .retryOnStructuredOutputError(properties.isRetryOnStructuredOutputError())
             .retryOnOtherError(properties.isRetryOnOtherError())
             .retryBackoffMillis(properties.getRetryBackoffMillis())
+            .failureSnippetsEnabled(properties.getFailureSnippets().isEnabled())
+            .failureSnippetsMaxLength(properties.getFailureSnippets().getMaxLength())
             .build();
         return new StructuredOutputExecutor(
             options,

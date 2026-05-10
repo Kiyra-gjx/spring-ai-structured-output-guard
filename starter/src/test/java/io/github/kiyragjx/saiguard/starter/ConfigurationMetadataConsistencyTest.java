@@ -59,6 +59,16 @@ class ConfigurationMetadataConsistencyTest {
             "true",
             "Enables the Micrometer listener when a MeterRegistry bean is present"
         ));
+        EXPECTED_PROPERTIES.put("spring.ai.structured-output.guard.failure-snippets.enabled", new PropertyExpectation(
+            "java.lang.Boolean",
+            "false",
+            "Captures truncated raw and repaired content in the final exception context"
+        ));
+        EXPECTED_PROPERTIES.put("spring.ai.structured-output.guard.failure-snippets.max-length", new PropertyExpectation(
+            "java.lang.Integer",
+            "500",
+            "Maximum length for captured content snippets"
+        ));
     }
 
     @Test

@@ -112,6 +112,8 @@ spring:
 | `spring.ai.structured-output.guard.retry-on-other-error` | `false` | structured output の解析失敗に分類されないエラーを再試行する |
 | `spring.ai.structured-output.guard.retry-backoff-millis` | `0` | 各再試行前の固定待機時間。`0` は待機なし |
 | `spring.ai.structured-output.guard.metrics.enabled` | `true` | `MeterRegistry` Bean がある場合に Micrometer リスナーを有効にする |
+| `spring.ai.structured-output.guard.failure-snippets.enabled` | `false` | 最終例外コンテキストに切り捨てられた元のコンテンツと修復済みコンテンツのスニペットをキャプチャする |
+| `spring.ai.structured-output.guard.failure-snippets.max-length` | `500` | キャプチャするコンテンツスニペットの最大長 |
 
 ### 呼び出しごとの上書き
 

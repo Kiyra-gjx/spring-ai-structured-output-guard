@@ -51,6 +51,8 @@ public class StructuredOutputGuardProperties {
 
     private final Metrics metrics = new Metrics();
 
+    private final FailureSnippets failureSnippets = new FailureSnippets();
+
     /**
      * Returns total attempts including the first call.
      *
@@ -187,6 +189,15 @@ public class StructuredOutputGuardProperties {
     }
 
     /**
+     * Returns failure content snippet properties.
+     *
+     * @return failure-snippets properties
+     */
+    public FailureSnippets getFailureSnippets() {
+        return failureSnippets;
+    }
+
+    /**
      * Micrometer integration properties.
      */
     public static class Metrics {
@@ -218,6 +229,64 @@ public class StructuredOutputGuardProperties {
          */
         public void setEnabled(boolean enabled) {
             this.enabled = enabled;
+        }
+    }
+
+    /**
+     * Failure content snippet properties.
+     */
+    public static class FailureSnippets {
+
+        /**
+         * Creates failure-snippets properties with starter defaults.
+         */
+        public FailureSnippets() {
+        }
+
+        /**
+         * Captures truncated raw and repaired content in the final exception context.
+         */
+        private boolean enabled = false;
+
+        /**
+         * Maximum length for captured content snippets.
+         */
+        private int maxLength = 500;
+
+        /**
+         * Returns whether failure content snippets are captured.
+         *
+         * @return {@code true} when snippets are enabled
+         */
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        /**
+         * Sets whether failure content snippets are captured.
+         *
+         * @param enabled {@code true} to enable snippets
+         */
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        /**
+         * Returns the maximum length for captured content snippets.
+         *
+         * @return maximum snippet length
+         */
+        public int getMaxLength() {
+            return maxLength;
+        }
+
+        /**
+         * Sets the maximum length for captured content snippets.
+         *
+         * @param maxLength maximum snippet length
+         */
+        public void setMaxLength(int maxLength) {
+            this.maxLength = maxLength;
         }
     }
 }
