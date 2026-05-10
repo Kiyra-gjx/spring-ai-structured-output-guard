@@ -15,6 +15,9 @@ package io.github.kiyragjx.saiguard.core;
  * @param retryOnOtherError whether classifier-negative errors are retryable while attempts remain; defaults to
  * {@code false}
  * @param retryBackoffMillis fixed wait before each retry; negative values are normalized to {@code 0}
+ * @param failureSnippetsEnabled whether failure content snippets are captured and attached to the final exception
+ * @param failureSnippetsMaxLength maximum length for failure content snippets; values below {@code 64} are normalized
+ * to {@code 64}
  */
 public record StructuredOutputOptions(
     int maxAttempts,
@@ -24,7 +27,9 @@ public record StructuredOutputOptions(
     String strictJsonInstruction,
     boolean retryOnStructuredOutputError,
     boolean retryOnOtherError,
-    long retryBackoffMillis
+    long retryBackoffMillis,
+    boolean failureSnippetsEnabled,
+    int failureSnippetsMaxLength
 ) {
 
     private static final String DEFAULT_STRICT_JSON_INSTRUCTION = """
@@ -46,6 +51,7 @@ public record StructuredOutputOptions(
             ? DEFAULT_STRICT_JSON_INSTRUCTION
             : strictJsonInstruction.trim();
         retryBackoffMillis = Math.max(0, retryBackoffMillis);
+        failureSnippetsMaxLength = Math.max(64, failureSnippetsMaxLength);
     }
 
     /**
@@ -78,6 +84,8 @@ public record StructuredOutputOptions(
         private boolean retryOnStructuredOutputError = true;
         private boolean retryOnOtherError = false;
         private long retryBackoffMillis = 0;
+        private boolean failureSnippetsEnabled = false;
+        private int failureSnippetsMaxLength = 500;
 
         /**
          * Creates a builder initialized with default values.
@@ -174,6 +182,28 @@ public record StructuredOutputOptions(
         }
 
         /**
+         * Controls whether failure content snippets are captured and attached to the final exception.
+         *
+         * @param failureSnippetsEnabled {@code true} to enable snippet capture
+         * @return this builder
+         */
+        public Builder failureSnippetsEnabled(boolean failureSnippetsEnabled) {
+            this.failureSnippetsEnabled = failureSnippetsEnabled;
+            return this;
+        }
+
+        /**
+         * Sets the maximum length for failure content snippets.
+         *
+         * @param failureSnippetsMaxLength maximum length; values below {@code 64} are normalized when built
+         * @return this builder
+         */
+        public Builder failureSnippetsMaxLength(int failureSnippetsMaxLength) {
+            this.failureSnippetsMaxLength = failureSnippetsMaxLength;
+            return this;
+        }
+
+        /**
          * Builds immutable options and applies documented normalization.
          *
          * @return options instance
@@ -187,7 +217,9 @@ public record StructuredOutputOptions(
                 strictJsonInstruction,
                 retryOnStructuredOutputError,
                 retryOnOtherError,
-                retryBackoffMillis
+                retryBackoffMillis,
+                failureSnippetsEnabled,
+                failureSnippetsMaxLength
             );
         }
     }
