@@ -551,7 +551,7 @@ class StructuredOutputExecutorTest {
         StructuredOutputException thrownByResponder = new StructuredOutputException(
             "custom failure",
             new IllegalArgumentException("json parse error"),
-            new StructuredOutputFailureContext(7, true, false, "custom")
+            new StructuredOutputFailureContext(7, true, false, "custom", null)
         );
 
         StructuredOutputException exception = assertThrows(StructuredOutputException.class, () -> executor.execute(

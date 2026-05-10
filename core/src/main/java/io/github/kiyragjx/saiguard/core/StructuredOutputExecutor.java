@@ -305,7 +305,8 @@ public class StructuredOutputExecutor {
                 attemptCount,
                 repairAttempted,
                 repairSucceeded,
-                errorType
+                errorType,
+                null
             );
         }
     }
