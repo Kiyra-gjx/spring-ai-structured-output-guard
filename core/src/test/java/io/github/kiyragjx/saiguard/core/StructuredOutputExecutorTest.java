@@ -8,6 +8,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -731,6 +733,120 @@ class StructuredOutputExecutorTest {
         assertEquals("{\"value\":\"ok\"}", result);
         assertEquals(List.of("repair-attempted:movie-review", "repair-succeeded:movie-review", "success:movie-review:1:true"),
             healthyListener.events);
+    }
+
+    @Test
+    void shouldNotIncludeSnippetsWhenDisabled() {
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder()
+                .maxAttempts(1)
+                .enableRepair(false)
+                .failureSnippetsEnabled(false)
+                .build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer()
+        );
+
+        StructuredOutputException exception = assertThrows(StructuredOutputException.class, () -> executor.execute(
+            StructuredOutputExecution.<String>builder()
+                .systemPrompt("Return JSON")
+                .userPrompt("hi")
+                .responder((systemPrompt, userPrompt) -> "{\"raw\":\"content\"}")
+                .parser(raw -> {
+                    throw new IllegalArgumentException("json parse error");
+                })
+                .build()));
+
+        assertEquals(1, exception.attemptCount());
+        assertNull(exception.failureContext().snippets());
+    }
+
+    @Test
+    void shouldCaptureRawContentSnippetWhenEnabled() {
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder()
+                .maxAttempts(1)
+                .enableRepair(false)
+                .failureSnippetsEnabled(true)
+                .failureSnippetsMaxLength(500)
+                .build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer()
+        );
+
+        StructuredOutputException exception = assertThrows(StructuredOutputException.class, () -> executor.execute(
+            StructuredOutputExecution.<String>builder()
+                .systemPrompt("Return JSON")
+                .userPrompt("hi")
+                .responder((systemPrompt, userPrompt) -> "{\"raw\":\"content\"}")
+                .parser(raw -> {
+                    throw new IllegalArgumentException("json parse error");
+                })
+                .build()));
+
+        assertNotNull(exception.failureContext().snippets());
+        assertEquals("{\"raw\":\"content\"}", exception.failureContext().snippets().lastRawContentSnippet());
+        assertNull(exception.failureContext().snippets().lastRepairedContentSnippet());
+    }
+
+    @Test
+    void shouldCaptureRepairedContentSnippetWhenRepairIsAttempted() {
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder()
+                .maxAttempts(1)
+                .failureSnippetsEnabled(true)
+                .failureSnippetsMaxLength(500)
+                .build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer()
+        );
+
+        StructuredOutputException exception = assertThrows(StructuredOutputException.class, () -> executor.execute(
+            StructuredOutputExecution.<String>builder()
+                .systemPrompt("Return JSON")
+                .userPrompt("hi")
+                .responder((systemPrompt, userPrompt) -> """
+                    ```json
+                    {"value":"ok",}
+                    ```
+                    """)
+                .parser(raw -> {
+                    throw new IllegalArgumentException("json parse error");
+                })
+                .build()));
+
+        assertNotNull(exception.failureContext().snippets());
+        assertTrue(exception.failureContext().snippets().lastRawContentSnippet().contains("```json"));
+        assertEquals("{\"value\":\"ok\"}", exception.failureContext().snippets().lastRepairedContentSnippet());
+    }
+
+    @Test
+    void shouldTruncateSnippetsToConfiguredMaxLength() {
+        String longContent = "x".repeat(1000);
+        StructuredOutputExecutor executor = new StructuredOutputExecutor(
+            StructuredOutputOptions.builder()
+                .maxAttempts(1)
+                .enableRepair(false)
+                .failureSnippetsEnabled(true)
+                .failureSnippetsMaxLength(100)
+                .build(),
+            new StructuredOutputErrorClassifier(),
+            new JsonRepairer()
+        );
+
+        StructuredOutputException exception = assertThrows(StructuredOutputException.class, () -> executor.execute(
+            StructuredOutputExecution.<String>builder()
+                .systemPrompt("Return JSON")
+                .userPrompt("hi")
+                .responder((systemPrompt, userPrompt) -> longContent)
+                .parser(raw -> {
+                    throw new IllegalArgumentException("json parse error");
+                })
+                .build()));
+
+        assertNotNull(exception.failureContext().snippets());
+        assertEquals(100, exception.failureContext().snippets().lastRawContentSnippet().length());
+        assertEquals("x".repeat(100), exception.failureContext().snippets().lastRawContentSnippet());
     }
 
     private static final class RecordingExecutionListener implements StructuredOutputExecutionListener {

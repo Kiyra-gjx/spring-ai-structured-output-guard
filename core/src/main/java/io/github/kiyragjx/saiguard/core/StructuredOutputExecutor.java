@@ -140,12 +140,14 @@ public class StructuredOutputExecutor {
                 String errorType = errorType(e);
                 failureTracker.recordAttempt(attempt, errorType);
                 executionListener.onFailure(safeLogContext(execution.logContext()), attempt, errorType);
-                throw e.withFailureContext(failureTracker.toContext());
+                throw e.withFailureContext(failureTracker.toContext(
+                    effectiveOptions.failureSnippetsEnabled(), effectiveOptions.failureSnippetsMaxLength()));
             } catch (Exception e) {
                 failureTracker.recordAttempt(attempt, errorType(e));
                 if (!shouldRetry(effectiveOptions, e, attempt)) {
                     executionListener.onFailure(safeLogContext(execution.logContext()), attempt, errorType(e));
-                    throw new StructuredOutputException(buildFailureMessage(execution), e, failureTracker.toContext());
+                    throw new StructuredOutputException(buildFailureMessage(execution), e, failureTracker.toContext(
+                        effectiveOptions.failureSnippetsEnabled(), effectiveOptions.failureSnippetsMaxLength()));
                 }
                 lastError = e;
                 try {
@@ -158,7 +160,8 @@ public class StructuredOutputExecutor {
                     StructuredOutputException interruptedException = new StructuredOutputException(
                         "Interrupted while waiting to retry structured output parsing",
                         interrupted,
-                        failureTracker.toContext()
+                        failureTracker.toContext(
+                            effectiveOptions.failureSnippetsEnabled(), effectiveOptions.failureSnippetsMaxLength())
                     );
                     interruptedException.addSuppressed(e);
                     throw interruptedException;
@@ -172,7 +175,8 @@ public class StructuredOutputExecutor {
         String errorType = errorType(lastError);
         failureTracker.recordAttempt(effectiveOptions.maxAttempts(), errorType);
         executionListener.onFailure(safeLogContext(execution.logContext()), effectiveOptions.maxAttempts(), errorType);
-        throw new StructuredOutputException(buildFailureMessage(execution), lastError, failureTracker.toContext());
+        throw new StructuredOutputException(buildFailureMessage(execution), lastError, failureTracker.toContext(
+            effectiveOptions.failureSnippetsEnabled(), effectiveOptions.failureSnippetsMaxLength()));
     }
 
     private boolean shouldRetry(StructuredOutputOptions options, Exception error, int attempt) {
@@ -240,6 +244,7 @@ public class StructuredOutputExecutor {
         String logContext,
         ExecutionFailureTracker failureTracker
     ) throws Exception {
+        failureTracker.recordRawContent(rawContent);
         try {
             return new ParseResult<>(parser.parse(rawContent), false);
         } catch (Exception originalError) {
@@ -255,6 +260,7 @@ public class StructuredOutputExecutor {
                 log.warn("{} JSON repair step failed. step={}, error={}",
                     safeLogContext, stepName, sanitizeErrorMessage(options, error.getMessage()));
             });
+            failureTracker.recordRepairedContent(repaired);
             if (repaired == null || repaired.equals(rawContent)) {
                 throw originalError;
             }
@@ -286,6 +292,8 @@ public class StructuredOutputExecutor {
         private boolean repairAttempted;
         private boolean repairSucceeded;
         private String errorType = StructuredOutputFailureContext.ERROR_TYPE_UNKNOWN;
+        private String lastRawContent;
+        private String lastRepairedContent;
 
         private void recordAttempt(int attemptCount, String errorType) {
             this.attemptCount = Math.max(this.attemptCount, attemptCount);
@@ -300,14 +308,39 @@ public class StructuredOutputExecutor {
             repairSucceeded = true;
         }
 
-        private StructuredOutputFailureContext toContext() {
+        private void recordRawContent(String rawContent) {
+            this.lastRawContent = rawContent;
+        }
+
+        private void recordRepairedContent(String repairedContent) {
+            this.lastRepairedContent = repairedContent;
+        }
+
+        private StructuredOutputFailureContext toContext(boolean snippetsEnabled, int snippetsMaxLength) {
             return new StructuredOutputFailureContext(
                 attemptCount,
                 repairAttempted,
                 repairSucceeded,
                 errorType,
-                null
+                buildSnippets(snippetsEnabled, snippetsMaxLength)
             );
+        }
+
+        private FailureSnippets buildSnippets(boolean enabled, int maxLength) {
+            if (!enabled) {
+                return null;
+            }
+            return new FailureSnippets(
+                truncate(lastRawContent, maxLength),
+                truncate(lastRepairedContent, maxLength)
+            );
+        }
+
+        private static String truncate(String content, int maxLength) {
+            if (content == null) {
+                return null;
+            }
+            return content.length() > maxLength ? content.substring(0, maxLength) : content;
         }
     }
 }
