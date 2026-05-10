@@ -112,6 +112,9 @@ spring:
         retry-backoff-millis: 0
         metrics:
           enabled: true
+        failure-snippets:
+          enabled: false
+          max-length: 500
 ```
 
 | 配置项 | 默认值 | 说明 |
@@ -185,6 +188,27 @@ guard 的修复层故意保持保守，只处理低风险、格式性的脏数�
   分类为 `structured_output`、`other` 或 `unknown`。
 
 异常通过 `failureContext()` 暴露这些值，也提供 `attemptCount()`、`errorType()` 等便捷方法。默认不会把原始模型输出或 repair 后输出片段挂到异常对象上，避免把潜在敏感 payload 无控制地传播出去。
+
+### 失败内容片段
+
+默认情况下，异常不会包含原始模型输出或修复后的内容。排查生产故障时，可以选择捕获截断片段：
+
+```yaml
+spring:
+  ai:
+    structured-output:
+      guard:
+        failure-snippets:
+          enabled: true
+          max-length: 500
+```
+
+启用后，`failureContext().snippets()` 返回一个 `FailureSnippets` 记录，包含：
+
+- `lastRawContentSnippet` — 最后一次失败尝试的截断原始模型输出
+- `lastRepairedContentSnippet` — 截断的修复后输出，如果未尝试过修复则为 `null`
+
+**安全边界：** 片段可能包含敏感的模型输出。此功能默认关闭。调用方负责在生产环境启用前评估合规风险。不提供任何脱敏或掩码处理。
 
 ## 扩展修复能力
 

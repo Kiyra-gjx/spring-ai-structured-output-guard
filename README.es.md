@@ -100,6 +100,9 @@ spring:
         retry-backoff-millis: 0
         metrics:
           enabled: true
+        failure-snippets:
+          enabled: false
+          max-length: 500
 ```
 
 | Propiedad | Valor por defecto | Descripción |
@@ -173,6 +176,27 @@ Cuando el guard termina lanzando `StructuredOutputException`, quien llama puede 
   Clasificado como `structured_output`, `other` o `unknown`.
 
 La excepción expone estos valores con `failureContext()` y métodos de conveniencia como `attemptCount()` y `errorType()`. Por defecto no adjunta la salida cruda del modelo ni snippets reparados, así que los payloads potencialmente sensibles no quedan almacenados en el objeto de excepción.
+
+### Fragmentos de contenido de fallo
+
+Por defecto, la excepción no incluye la salida cruda del modelo ni el contenido reparado. Para diagnosticar fallos en producción, puedes optar por capturar fragmentos truncados:
+
+```yaml
+spring:
+  ai:
+    structured-output:
+      guard:
+        failure-snippets:
+          enabled: true
+          max-length: 500
+```
+
+Cuando está habilitado, `failureContext().snippets()` devuelve un registro `FailureSnippets` con:
+
+- `lastRawContentSnippet` — salida cruda truncada del modelo del último intento fallido
+- `lastRepairedContentSnippet` — salida reparada truncada, o `null` si no se intentó la reparación
+
+**Límite de seguridad:** Los fragmentos pueden contener salida sensible del modelo. Esta función está desactivada por defecto. Quienes la invocan son responsables de evaluar el riesgo de cumplimiento antes de habilitarla en producción. No se aplica ningún tipo de redacción ni enmascaramiento.
 
 ## Extender la reparación
 

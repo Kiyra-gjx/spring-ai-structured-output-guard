@@ -100,6 +100,9 @@ spring:
         retry-backoff-millis: 0
         metrics:
           enabled: true
+        failure-snippets:
+          enabled: false
+          max-length: 500
 ```
 
 | Property | Default | Description |
@@ -173,6 +176,27 @@ guard が最終的に `StructuredOutputException` を投げた場合、呼び出
   `structured_output`、`other`、`unknown` のいずれかに分類されます。
 
 例外は `failureContext()` でこれらの値を公開し、`attemptCount()` や `errorType()` などのショートカットも提供します。デフォルトでは raw model output や repaired output snippet を例外オブジェクトに保持しないため、機微な payload が不用意に伝播しません。
+
+### 失敗コンテンツスニペット
+
+デフォルトでは、例外に raw model output や修復後のコンテンツは含まれません。本番障害のトラブルシューティング時に、切り捨てられたスニペットをキャプチャするよう opt-in できます：
+
+```yaml
+spring:
+  ai:
+    structured-output:
+      guard:
+        failure-snippets:
+          enabled: true
+          max-length: 500
+```
+
+有効にすると、`failureContext().snippets()` は以下の `FailureSnippets` レコードを返します：
+
+- `lastRawContentSnippet` — 最後に失敗した試行の切り捨て済み raw model output
+- `lastRepairedContentSnippet` — 切り捨て済みの修復後出力。修復が試行されなかった場合は `null`
+
+**セキュリティ境界:** スニペットには機微なモデル出力が含まれる可能性があります。この機能はデフォルトで無効です。本番で有効にする前に、呼び出し側がコンプライアンスリスクを評価する責任を負います。脱マスキングやマスキング処理は行われません。
 
 ## 修復の拡張
 

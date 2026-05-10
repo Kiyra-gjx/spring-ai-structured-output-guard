@@ -112,6 +112,9 @@ spring:
         retry-backoff-millis: 0
         metrics:
           enabled: true
+        failure-snippets:
+          enabled: false
+          max-length: 500
 ```
 
 | Property | Default | Description |
@@ -185,6 +188,27 @@ When the guard ultimately throws `StructuredOutputException`, callers can inspec
   Classified as `structured_output`, `other`, or `unknown`.
 
 The exception exposes these values through `failureContext()` and convenience methods such as `attemptCount()` and `errorType()`. It does not attach raw model output or repaired output snippets by default, so potentially sensitive payloads are not stored on the exception object.
+
+### Failure Content Snippets
+
+By default, the exception does not include raw model output or repaired content. When troubleshooting production failures, you can opt in to capture truncated snippets:
+
+```yaml
+spring:
+  ai:
+    structured-output:
+      guard:
+        failure-snippets:
+          enabled: true
+          max-length: 500
+```
+
+When enabled, `failureContext().snippets()` returns a `FailureSnippets` record with:
+
+- `lastRawContentSnippet` — truncated raw model output from the last failed attempt
+- `lastRepairedContentSnippet` — truncated repaired output, or `null` if repair was not attempted
+
+**Security boundary:** Snippets may contain sensitive model output. This feature is off by default. Callers are responsible for assessing compliance risk before enabling it in production. No redaction or masking is applied.
 
 ## Extending Repair
 
